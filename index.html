@@ -1,1 +1,321 @@
-begin build in early decsenber
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dock Repository Browser</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 860px;
+      margin: 32px auto;
+      padding: 0 16px;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+    button#back-btn {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button#back-btn:hover:not(:disabled) {
+      background: #f1f5f9;
+    }
+    button#back-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .path-display {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 14px;
+      color: var(--text);
+      word-break: break-all;
+    }
+    .list-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .item:last-child {
+      border-bottom: none;
+    }
+    .item:hover {
+      background: #f8fafc;
+    }
+    .item-main {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+    .badge {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: var(--accent);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .badge.file {
+      background: #f1f5f9;
+      color: var(--muted);
+    }
+    button.dir-link {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 15px;
+      color: var(--text);
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      word-break: break-all;
+    }
+    button.dir-link:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    a.file-link {
+      font-size: 15px;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+      word-break: break-all;
+    }
+    a.file-link:hover {
+      color: var(--accent-hover);
+      text-decoration: underline;
+    }
+    .meta {
+      font-size: 12px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .status {
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .error {
+      color: #b91c1c;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="toolbar">
+      <button id="back-btn" type="button" disabled>← 戻る</button>
+      <div id="path-display" class="path-display">/</div>
+    </div>
+
+    <div class="list-card">
+      <div id="content" class="status">読み込み中...</div>
+    </div>
+  </div>
+
+  <script>
+    // URL（例: https://yukimasaishizawa.github.io/dock/）から owner / repo を自動判定し、失敗時は既定値を使用
+    function detectRepoInfo() {
+      const host = window.location.hostname;
+      const parts = window.location.pathname.split("/").filter(Boolean);
+      if (host.endsWith(".github.io") && parts.length >= 1) {
+        return {
+          owner: host.replace(".github.io", ""),
+          repo: parts[0],
+          branch: "main"
+        };
+      }
+      return {
+        owner: "yukimasaishizawa",
+        repo: "dock",
+        branch: "main"
+      };
+    }
+
+    const REPO = detectRepoInfo();
+    const backBtn = document.getElementById("back-btn");
+    const pathDisplay = document.getElementById("path-display");
+    const contentEl = document.getElementById("content");
+
+    function getCurrentPath() {
+      const hash = window.location.hash || "";
+      if (!hash.startsWith("#path=")) return "";
+      return decodeURIComponent(hash.slice(6)).replace(/^\/+|\/+$/g, "");
+    }
+
+    function setCurrentPath(newPath) {
+      const clean = newPath.replace(/^\/+|\/+$/g, "");
+      window.location.hash = clean ? `#path=${encodeURIComponent(clean)}` : "";
+    }
+
+    function formatSize(bytes) {
+      if (typeof bytes !== "number") return "";
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    // .gitignore および隠しファイル（.DS_Store など）を除外
+    function shouldHide(item) {
+      if (!item || !item.name) return true;
+      if (item.name === ".gitignore") return true;
+      if (item.name.startsWith(".")) return true;
+      return false;
+    }
+
+    function getFileUrl(item) {
+      // GitHub Pages 上なら Pages のURLで開き、それ以外は GitHub の blob URL を開く
+      const isPages = window.location.hostname.endsWith(".github.io");
+      if (isPages) {
+        const basePath = window.location.pathname.replace(/\/index\.html$/, "").replace(/\/+$/, "");
+        const encodedFilePath = item.path.split("/").map(encodeURIComponent).join("/");
+        return `${window.location.origin}${basePath}/${encodedFilePath}`;
+      }
+      return item.html_url;
+    }
+
+    async function loadDirectory(path) {
+      const cleanPath = path.replace(/^\/+|\/+$/g, "");
+      pathDisplay.textContent = cleanPath ? `/${cleanPath}` : "/";
+      backBtn.disabled = cleanPath.length === 0;
+
+      contentEl.className = "status";
+      contentEl.textContent = "読み込み中...";
+
+      const apiPath = cleanPath
+        ? `/${cleanPath.split("/").map(encodeURIComponent).join("/")}`
+        : "";
+      const apiUrl = `https://api.github.com/repos/${encodeURIComponent(REPO.owner)}/${encodeURIComponent(REPO.repo)}/contents${apiPath}?ref=${encodeURIComponent(REPO.branch)}`;
+
+      try {
+        const res = await fetch(apiUrl, {
+          headers: { "Accept": "application/vnd.github+json" }
+        });
+        if (!res.ok) {
+          throw new Error(`取得に失敗しました（HTTP ${res.status}）`);
+        }
+        const data = await res.json();
+        if (!Array.isArray(data)) {
+          throw new Error("ディレクトリ一覧を取得できませんでした。");
+        }
+
+        const visibleItems = data
+          .filter((item) => !shouldHide(item))
+          .sort((a, b) => {
+            if (a.type === b.type) return a.name.localeCompare(b.name, "ja");
+            return a.type === "dir" ? -1 : 1;
+          });
+
+        if (visibleItems.length === 0) {
+          contentEl.className = "status";
+          contentEl.textContent = "表示できるフォルダ・ファイルはありません。";
+          return;
+        }
+
+        contentEl.className = "";
+        contentEl.innerHTML = "";
+
+        for (const item of visibleItems) {
+          const row = document.createElement("div");
+          row.className = "item";
+
+          const main = document.createElement("div");
+          main.className = "item-main";
+
+          const badge = document.createElement("span");
+          badge.className = item.type === "dir" ? "badge" : "badge file";
+          badge.textContent = item.type === "dir" ? "FOLDER" : "FILE";
+          main.appendChild(badge);
+
+          if (item.type === "dir") {
+            const dirBtn = document.createElement("button");
+            dirBtn.type = "button";
+            dirBtn.className = "dir-link";
+            dirBtn.textContent = item.name;
+            dirBtn.addEventListener("click", () => {
+              const nextPath = cleanPath ? `${cleanPath}/${item.name}` : item.name;
+              setCurrentPath(nextPath);
+            });
+            main.appendChild(dirBtn);
+            row.appendChild(main);
+          } else {
+            const link = document.createElement("a");
+            link.className = "file-link";
+            link.href = getFileUrl(item);
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = item.name;
+            main.appendChild(link);
+            row.appendChild(main);
+
+            const meta = document.createElement("span");
+            meta.className = "meta";
+            meta.textContent = formatSize(item.size);
+            row.appendChild(meta);
+          }
+
+          contentEl.appendChild(row);
+        }
+      } catch (err) {
+        contentEl.className = "status error";
+        contentEl.textContent = err.message || "エラーが発生しました。";
+      }
+    }
+
+    backBtn.addEventListener("click", () => {
+      const current = getCurrentPath();
+      if (!current) return;
+      const parts = current.split("/");
+      parts.pop();
+      setCurrentPath(parts.join("/"));
+    });
+
+    window.addEventListener("hashchange", () => {
+      loadDirectory(getCurrentPath());
+    });
+
+    loadDirectory(getCurrentPath());
+  </script>
+</body>
+</html>
