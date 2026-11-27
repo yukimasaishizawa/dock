@@ -155,7 +155,6 @@
   </div>
 
   <script>
-    // URL（例: https://yukimasaishizawa.github.io/dock/）から owner / repo を自動判定し、失敗時は既定値を使用
     function detectRepoInfo() {
       const host = window.location.hostname;
       const parts = window.location.pathname.split("/").filter(Boolean);
@@ -196,16 +195,16 @@
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     }
 
-    // .gitignore および隠しファイル（.DS_Store など）を除外
+    // .gitignore、index.html、および隠しファイルを除外
     function shouldHide(item) {
       if (!item || !item.name) return true;
-      if (item.name === ".gitignore") return true;
+      const lowerName = item.name.toLowerCase();
+      if (lowerName === ".gitignore" || lowerName === "index.html") return true;
       if (item.name.startsWith(".")) return true;
       return false;
     }
 
     function getFileUrl(item) {
-      // GitHub Pages 上なら Pages のURLで開き、それ以外は GitHub の blob URL を開く
       const isPages = window.location.hostname.endsWith(".github.io");
       if (isPages) {
         const basePath = window.location.pathname.replace(/\/index\.html$/, "").replace(/\/+$/, "");
