@@ -1,0 +1,219 @@
+GCI Note
+
+ライブラリのインポート
+↳　import ライブラリ名
+
+Pandasインポート
+↳　import pandas as pd
+
+Pandas表作成
+↳　変数名=pd.DataFrame(二次元リスト)
+Ex: df = pd.DataFrame([[57, 120],[52, 130],[55, 115], [51, 140]])
+df
+
+Ex2: df = pd.DataFrame([[65,120,12000],[70,115,15000],[66,130,13500],[64,133,12100],[67,127,14200]], columns = ['width', 'engine-size','price'])  //一度に列の名称も登録できる。
+
+列の名称変更（既存）
+↳　df.columns= ['一列目の名称', '二列目の名称']
+
+列の名称変更
+↳　df = df.rename(columns={'一列目変更前': '一列目変更後', '二列目変更前': '二列目変更後'})
+
+DataFrameをcsvファイルとして保存する
+↳　df.to_csv('ファイル名', index = TrueかFalse) //Trueの場合はindexが保存され、Falseの場合はindexが保存されない
+
+csvファイルを読み込んでDataFrame形式にする
+↳　df2 = pd.read_csv('読み込むファイル名')　//DataFrameの名前が被らないようにすること。また、読み込むファイルは事前にインポートしておくこと。
+
+線形回帰モデル制作
+↳　from sklearn.linear_model import LinearRegression
+model = LinearRegression()
+
+特定の列だけを抜き出して代入
+↳　x = df[['一列目名称', '二列目名称']]
+
+scikit-learnのモデル学習（線形回帰、決定木のどちらにもつかえる）
+↳　model.fit(x,t)　　//ここでは説明変数xと目的変数tをモデルに渡している。目的変数は自分が予測したい内容で、予測に用いるデータが説明変数である。
+
+scikit-learnのモデル学習で正しく予測できているか確認する方法
+↳　model.score(x,t)　　//1.0なら100%
+
+線形回帰モデルの結果表示
+↳　print(f'推定された切片: {model.intercept_}')
+print(f'推定された係数: {model.coef_}')
+
+データフレームの行数確認
+↳　len(df)
+
+データフレームの先頭n行まで表示
+↳　df.head(n)
+
+データフレームの末尾n行を表示
+↳　df.tail(n)
+
+データフレームの欠損値の有無を確認
+↳　df_isnull = df.isnull()  //Trueならば欠損値、Falseならば正常値
+
+欠損値の個数確認
+↳　df_isnull.sum()　　//Trueは1、Falseは0であるため、1の合計値が欠損値の個数である。
+
+データフレームの統計量を確認
+↳　df.describe()
+
+グラフ描画（散布図制作）
+↳　import matplotlib.pyplot as plt
+plt.scatter(df['x軸にしたい列'], df['y軸にしたい列'])
+plt.xlabel('x軸の名称')
+plt.ylabel('y軸の名称')
+plt.show()
+
+欠損値を一つでも含む行を削除
+↳　df_drop = df.dropna()　　//lenで欠損値により削除された行数を確認できる。
+Ex: print('削除前のデータ数', len(df))
+print('削除後のデータ数', len(df_drop))
+
+行・列の削除
+↳　X = df.drop('消したい行・列の名所', axis=0か1)　　//axis=0なら行、axis=1なら列が削除される。
+
+モデルの予測精度確認
+↳　from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import KFold, cross_val_score
+model = LinearRegression()
+kf = KFold(n_splits=5, shuffle=True, random_state=0)
+scores = cross_val_score(model, X, y, cv=kf, scoring='r2')　　//n_splits=5でモデルの分割回数を指定できる。
+print('各分割における決定係数:', scores)
+print('クロスバリデーションの平均決定係数:', scores.mean())
+
+DataFrameの条件付き抽出
+↳　df_out = df[(df['列の名称'] （条件）) & (df['列の名称'] （条件）)]
+Ex: df_out = df[(df['curb-weight'] <= 3000) & (df['price'] >= 30000)]
+
+箱ひげ図制作
+↳　import matplotlib.pyplot as plt
+import seaborn as sns
+plt.figure(figsize=(4, 6))
+sns.boxplot(y=df['参照する列の名称'])
+plt.ylabel('ラベル名')
+plt.show()
+
+行や列を名前で指定して抜き出す
+↳　df.loc[行ラベル,列ラベル]
+
+外れ値除外
+↳　columns = ['列の名称1', '列の名称2', '列の名称3']
+desc = df[columns].describe()
+Q1 = desc.loc['25%']　　//第1四分位数
+Q3 = desc.loc['75%']　　//第3四分位数
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR　　//四分位範囲決定
+columns = ['列の名称1', '列の名称2', '列の名称3']　　//外れ値除外の処理をしたい列を格納する
+for column in columns:
+    df = df[(df[column] >= lower_bound[column]) & (df[column] <= upper_bound[column])]
+X = df.drop('目的変数の列名', axis=1)
+y = df['目的変数の列名']
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import KFold, cross_val_score
+model = LinearRegression()
+kf = KFold(n_splits=5, shuffle=True, random_state=0)
+scores = cross_val_score(model, X, y, cv=kf, scoring='r2')
+print('各分割における決定係数:', scores)
+print('交差検証の平均決定係数:', scores.mean())　　//モデルの精度検証
+
+モデルの予測精度検証（簡易）
+↳　train_score = model.score(x_train, y_train)
+test_score = model.score(x_test, y_test)
+print('訓練データに対する正解率',round(train_score, 3))
+print('テストデータに対する正解率', round(test_score, 3))　　//round=3で3桁まで表示するように丸め込んでいる。
+
+データの標準化
+↳　from sklearn.preprocessing import StandardScaler
+X = df[['標準化したい列名', '標準化したい列名', '標準化したい列名']]
+ss = StandardScaler()
+ss.fit(X)
+X_std = ss.transform(X)
+df[['標準化したい列名　std', '標準化したい列名 std', '標準化したい列名 std']] = X_std　　//ラベルの名称を変更している
+
+データの平均、標準偏差を出したいとき
+↳　df[['知りたい列名', '知りたい列名', '知りたい列名']].describe().loc[['mean', 'std']]
+
+訓練データとテストデータの分割
+↳　from sklearn.model_selection import train_test_split
+X = df[['説明変数のラベル', ''説明変数のラベル', ''説明変数のラベル']]
+y = df['目的へ変数のラベル']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)　　//test_sizeの値でテストデータと訓練データの分割比率を指定できる。
+ss = StandardScaler()
+ss.fit(X_train)
+X_train_std = ss.transform(X_train)
+X_test_std = ss.transform(X_test)
+
+fitメソッドを用いたモデルの構築
+↳　from sklearn.linear_model import LinearRegression
+model = LinearRegression()
+model.fit(X_train, y_train)　　//訓練データとテストデータの分割の際に新たに定めた名称を使用する。
+print('回帰係数:', model.coef_)
+
+ダミー変数化（0と1のみで表す方法）
+↳　df2 = pd.get_dummies(df, drop_first = True, dtype = int)  //dfのダミー変数化後のデータをdf2に代入している。int型は数字、drop_firstを指定することで重複を防げる。
+
+決定木の学習をするためのライブラリのインポート
+↳　from sklearn.tree import DecisionTreeClassifier
+model = DecisionTreeClassifier()
+
+決定木の構造を図示
+↳　from sklearn.tree import plot_tree
+plot_tree(model, feature_names = x.columns)
+
+データフレームの各列に何種類のデータが含まれているか確認する方法
+↳　print(df['cap_color'].unique())　　//unique関数を用いると、含まれるデータの種類を可視化できる。個数だけ知りたいならすsum()の中にdfを含めればよい。
+
+表をindex順に並べなおす
+↳　df = df.sort_index()
+
+棒グラフ描画
+↳　import matplotlib.pyplot as plt
+plt.bar(df['引用するindex名1'].index, df['引用するindex名1'])　　//一つ目の引数には使用するインデックスを、二つ目の引数にはその高さを代入している。
+plt.bar(df['引用するindex名2'].index, df['引用するindex名2'], bottom = df['引用するindex名1'])　　//積み上げ棒グラフにしたいので、二つ目以降のデータはbottomで始まりを一つ目の終わりと等しくしている。
+
+欠損値の補完
+↳　df_fill = df.fillna(top)
+
+データの同一性を知りたいとき
+↳　演算子 == を用いて比較する。帰ってくるのはTrueかFakseのどちらかである。
+
+条件演算子について
+↳　どちらも満たす→&
+少なくともどちらかは満たす→|
+Ex: df.loc[(df['cap_color'] == 'b') & (is_null),'bruises'] = tops['b']
+
+データフレームの結合
+↳　df = pd.merge(df1, df2)　　//同じ名前の列名IDを認識して、その列を基準に結合される。
+（補足）merge関数の結合方法
+表データの同士の結合方法として、内部結合と左外部結合と完全外部結合がよく使用されます。内部結合では、異なるテーブル間で特定列に一致するデータを結合し、一致しない行は削除されます。左外部結合では、異なるテーブル間で左の特定列にある全てのデータを結合して抽出しますが、右のテーブルに一致しないデータは欠損値となります。完全外部結合は、両テーブルに一致しない行は欠損値として、全てのデータを結合します。pandasのmerge関数では、引数`how`に`inner`（内部結合）や`left`（左外部結合）、`outer`（完全外部結合）を指定して結合様式を切り替えられます。
+
+特定の列データがほかの列データに含まれているか確認する方法
+↳　df =  df1['ID'].isin(df2['ID'])
+（補足）
+isinメソッドは、かっこ内の引数に含まれるデータをTrue、含まれないデータをFalseとした真偽値（bool）型の値を持つSeriesオブジェクトを返します。df1のIDデータのうち、何件のデータが含まれなかったか確認します。真偽値型の値を持つSeriesオブジェクトのTrueの数を数える方法にsumメソッドが使用できますが、今回は含まれないFalseの数を調べるため、いったんFalseをTrue、TrueをFalseに変換してsumメソッドを使用したいと思います。真偽値を反転させるには、Seriesオブジェクトの前に~（チルダ）記号を付けます。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

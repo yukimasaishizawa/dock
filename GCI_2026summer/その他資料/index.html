@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>名刺管理ツール</title>
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        :root {
+            --primary: #007bff;
+            --background: #f8f9fa;
+            --surface: #ffffff;
+            --text: #333333;
+            --border: #ced4da;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .card {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="email"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button, .file-upload-label {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: inline-block;
+        }
+        button:hover, .file-upload-label:hover {
+            opacity: 0.9;
+        }
+        #preview {
+            max-width: 100%;
+            max-height: 200px;
+            margin-top: 10px;
+            display: none;
+        }
+        #status {
+            color: #d9534f;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid var(--border);
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f1f3f5;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>名刺管理ツール</h1>
+
+    <!-- カメラ撮影・画像読み込みセクション -->
+    <div class="card">
+        <h2>名刺の追加</h2>
+        <div class="form-group">
+            <label class="file-upload-label">
+                カメラで撮影 / 画像を選択
+                <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display: none;">
+            </label>
+        </div>
+        <img id="preview" alt="名刺プレビュー">
+        <div id="status"></div>
+
+        <div class="form-group">
+            <label for="company">企業名</label>
+            <input type="text" id="company" placeholder="企業名">
+        </div>
+        <div class="form-group">
+            <label for="name">氏名</label>
+            <input type="text" id="name" placeholder="氏名">
+        </div>
+        <div class="form-group">
+            <label for="email">メールアドレス</label>
+            <input type="email" id="email" placeholder="メールアドレス">
+        </div>
+        <div class="form-group">
+            <label for="rawText">OCR抽出テキスト全編 (手動修正用)</label>
+            <textarea id="rawText" rows="4"></textarea>
+        </div>
+        <button id="saveBtn">名刺データを保存</button>
+    </div>
+
+    <!-- 検索と一覧表示セクション -->
+    <div class="card">
+        <h2>名刺リスト</h2>
+        
+        <div class="actions">
+            <button id="exportBtn">CSVとしてダウンロード</button>
+            <label class="file-upload-label" style="background-color: #28a745;">
+                CSVをインポート
+                <input type="file" accept=".csv" id="importBtn" style="display: none;">
+            </label>
+        </div>
+
+        <div class="form-group">
+            <input type="text" id="searchInput" placeholder="企業名や名前で検索...">
+        </div>
+
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>企業名</th>
+                    <th>氏名</th>
+                    <th>メールアドレス</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- データがここに挿入されます -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 状態管理
+    let cards = JSON.parse(localStorage.getItem('businessCards')) || [];
+
+    // DOM要素
+    const cameraInput = document.getElementById('cameraInput');
+    const preview = document.getElementById('preview');
+    const status = document.getElementById('status');
+    const companyInput = document.getElementById('company');
+    const nameInput = document.getElementById('name');
+    const emailInput = document.getElementById('email');
+    const rawTextInput = document.getElementById('rawText');
+    const saveBtn = document.getElementById('saveBtn');
+    const tableBody = document.getElementById('tableBody');
+    const searchInput = document.getElementById('searchInput');
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+
+    // 初期表示
+    renderTable();
+
+    // 1. 画像選択とOCR処理
+    cameraInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // プレビュー表示
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+
+        status.textContent = '文字を認識中... (数秒〜数十秒かかります)';
+        
+        try {
+            // TesseractでOCR
+            const result = await Tesseract.recognize(file, 'jpn+eng', {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        status.textContent = `文字を認識中... ${Math.round(m.progress * 100)}%`;
+                    }
+                }
+            });
+
+            const text = result.data.text;
+            rawTextInput.value = text;
+
+            // 強化されたデータ抽出ロジックを実行
+            extractDataFromText(text);
+            status.textContent = '認識完了。必要に応じて内容を修正してください。';
+            status.style.color = '#28a745';
+        } catch (error) {
+            status.textContent = 'エラーが発生しました: ' + error.message;
+        }
+    });
+
+    // 抽出ロジック（パターン認識による自動判定）
+    function extractDataFromText(text) {
+        // テキストを行ごとに分割して空白を削除
+        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+
+        let extractedEmail = '';
+        let extractedCompany = '';
+        let extractedName = '';
+
+        const excludeForNameRegex = /[0-9a-zA-Z〒@\-\/\:\.\,電話住所ビル階丁目番号]/; 
+        const titleRegex = /代表取締役|取締役|執行役員|社長|部長|課長|係長|主任|マネージャー|CEO|COO/g;
+
+        lines.forEach(line => {
+            const emailMatch = line.match(/[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+/);
+            if (emailMatch && !extractedEmail) {
+                extractedEmail = emailMatch[0];
+            }
+
+            const companyMatch = line.match(/.*(株式|有限|合同|合資|合名)会社.*|.*(財団|社団)法人.*/);
+            if (companyMatch && !extractedCompany) {
+                extractedCompany = companyMatch[0];
+            }
+
+            if (!companyMatch && !emailMatch) {
+                if (!excludeForNameRegex.test(line)) {
+                    let possibleName = line.replace(titleRegex, '').replace(/[ \s]+/g, ' ').trim();
+                    if (possibleName.length >= 2 && possibleName.length <= 7) {
+                        if (!extractedName || possibleName.includes(' ') || possibleName.includes(' ')) {
+                            extractedName = possibleName;
+                        }
+                    }
+                }
+            }
+        });
+
+        if (extractedEmail) emailInput.value = extractedEmail;
+        if (extractedCompany) companyInput.value = extractedCompany;
+        if (extractedName) nameInput.value = extractedName;
+    }
+
+    // 2. データの保存
+    saveBtn.addEventListener('click', () => {
+        const company = companyInput.value.trim();
+        const name = nameInput.value.trim();
+        
+        if (!company && !name) {
+            alert('企業名または氏名を入力してください。');
+            return;
+        }
+
+        const newCard = {
+            id: Date.now(),
+            company: company,
+            name: name,
+            email: emailInput.value.trim(),
+            rawText: rawTextInput.value.trim()
+        };
+
+        cards.push(newCard);
+        saveToLocalStorage();
+        renderTable();
+        clearForm();
+        alert('保存しました！');
+    });
+
+    function saveToLocalStorage() {
+        localStorage.setItem('businessCards', JSON.stringify(cards));
+    }
+
+    function clearForm() {
+        companyInput.value = '';
+        nameInput.value = '';
+        emailInput.value = '';
+        rawTextInput.value = '';
+        preview.style.display = 'none';
+        cameraInput.value = '';
+        status.textContent = '';
+    }
+
+    // 3. テーブルの描画と検索
+    function renderTable(filterText = '') {
+        tableBody.innerHTML = '';
+        
+        const filteredCards = cards.filter(card => 
+            card.company.includes(filterText) || 
+            card.name.includes(filterText) ||
+            card.rawText.includes(filterText)
+        );
+
+        filteredCards.forEach(card => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${card.company}</td>
+                <td>${card.name}</td>
+                <td>${card.email}</td>
+                <td><button onclick="deleteCard(${card.id})" style="background-color:#dc3545; padding:5px 10px; font-size:12px;">削除</button></td>
+            `;
+            tableBody.appendChild(tr);
+        });
+    }
+
+    window.deleteCard = function(id) {
+        if(confirm('この名刺を削除しますか？')) {
+            cards = cards.filter(c => c.id !== id);
+            saveToLocalStorage();
+            renderTable(searchInput.value);
+        }
+    }
+
+    searchInput.addEventListener('input', (e) => {
+        renderTable(e.target.value);
+    });
+
+    // 4. CSVエクスポート
+    exportBtn.addEventListener('click', () => {
+        if (cards.length === 0) {
+            alert('エクスポートするデータがありません。');
+            return;
+        }
+
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+        csvContent += "ID,企業名,氏名,メールアドレス\n"; 
+
+        cards.forEach(card => {
+            const row = [
+                card.id,
+                `"${card.company.replace(/"/g, '""')}"`, 
+                `"${card.name.replace(/"/g, '""')}"`,
+                `"${card.email}"`
+            ].join(",");
+            csvContent += row + "\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "information.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+
+    // 5. CSVインポート
+    importBtn.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const text = event.target.result;
+            const rows = text.split('\n');
+            
+            for (let i = 1; i < rows.length; i++) {
+                if (rows[i].trim() === '') continue;
+                const cols = rows[i].split(',').map(col => col.replace(/(^"|"$)/g, ''));
+                
+                if (cols.length >= 4) {
+                    if (!cards.find(c => c.id.toString() === cols[0])) {
+                        cards.push({
+                            id: parseInt(cols[0]) || Date.now() + i,
+                            company: cols[1] || '',
+                            name: cols[2] || '',
+                            email: cols[3] || '',
+                            rawText: ''
+                        });
+                    }
+                }
+            }
+            saveToLocalStorage();
+            renderTable();
+            alert('CSVの読み込みが完了しました。');
+            importBtn.value = ''; 
+        };
+        reader.readAsText(file);
+    });
+</script>
+</body>
+</html>

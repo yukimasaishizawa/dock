@@ -1,0 +1,285 @@
+{
+  "Age": {
+    "type": "numerical",
+    "min": 18.0,
+    "max": 60.0,
+    "mean": 36.89523809523809
+  },
+  "BusinessTravel": {
+    "type": "categorical",
+    "values": [
+      "Non-Travel",
+      "Travel_Frequently",
+      "Travel_Rarely"
+    ]
+  },
+  "Department": {
+    "type": "categorical",
+    "values": [
+      "Human Resources",
+      "Research & Development",
+      "Sales"
+    ]
+  },
+  "DistanceFromHome": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 29.0,
+    "mean": 9.236734693877551
+  },
+  "Education": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 5.0,
+    "mean": 2.910204081632653
+  },
+  "EducationField": {
+    "type": "categorical",
+    "values": [
+      "Human Resources",
+      "Life Sciences",
+      "Marketing",
+      "Medical",
+      "Other",
+      "Technical Degree"
+    ]
+  },
+  "EmployeeCount": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 1.0,
+    "mean": 1.0
+  },
+  "EmployeeNumber": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 2068.0,
+    "mean": 1022.1850340136054
+  },
+  "EnvironmentSatisfaction": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 4.0,
+    "mean": 2.721768707482993
+  },
+  "Gender": {
+    "type": "categorical",
+    "values": [
+      "Female",
+      "Male"
+    ]
+  },
+  "PerformanceIndex": {
+    "type": "numerical",
+    "min": 30.0,
+    "max": 100.0,
+    "mean": 65.89115646258503
+  },
+  "JobInvolvement": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 4.0,
+    "mean": 2.7299319727891156
+  },
+  "JobLevel": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 5.0,
+    "mean": 2.074829931972789
+  },
+  "JobRole": {
+    "type": "categorical",
+    "values": [
+      "Healthcare Representative",
+      "Human Resources",
+      "Laboratory Technician",
+      "Manager",
+      "Manufacturing Director",
+      "Research Director",
+      "Research Scientist",
+      "Sales Executive",
+      "Sales Representative"
+    ]
+  },
+  "JobSatisfaction": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 4.0,
+    "mean": 2.7285714285714286
+  },
+  "MaritalStatus": {
+    "type": "categorical",
+    "values": [
+      "Divorced",
+      "Married",
+      "Single"
+    ]
+  },
+  "MonthlyAchievement": {
+    "type": "numerical",
+    "min": 2094.0,
+    "max": 26999.0,
+    "mean": 14313.103401360544
+  },
+  "NumCompaniesWorked": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 9.0,
+    "mean": 2.6829931972789116
+  },
+  "Over18": {
+    "type": "categorical",
+    "values": [
+      "Y"
+    ]
+  },
+  "OverTime": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 61.0,
+    "mean": 15.33061224489796
+  },
+  "PerformanceRating": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 4.0,
+    "mean": 2.533333333333333
+  },
+  "RelationshipSatisfaction": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 4.0,
+    "mean": 2.7122448979591836
+  },
+  "StandardHours": {
+    "type": "numerical",
+    "min": 40.0,
+    "max": 40.0,
+    "mean": 40.0
+  },
+  "StockOptionLevel": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 3.0,
+    "mean": 0.7938775510204081
+  },
+  "TotalWorkingYears": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 40.0,
+    "mean": 11.25374149659864
+  },
+  "TrainingTimesLastYear": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 6.0,
+    "mean": 2.7993197278911564
+  },
+  "WorkLifeBalance": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 4.0,
+    "mean": 2.7612244897959184
+  },
+  "YearsAtCompany": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 40.0,
+    "mean": 7.0081632653061225
+  },
+  "YearsInCurrentRole": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 18.0,
+    "mean": 4.2312925170068025
+  },
+  "YearsSinceLastPromotion": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 15.0,
+    "mean": 2.1965986394557824
+  },
+  "YearsWithCurrManager": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 17.0,
+    "mean": 4.123809523809523
+  },
+  "HowToEmploy": {
+    "type": "categorical",
+    "values": [
+      "New_graduate_recruitment",
+      "agent_A",
+      "agent_B",
+      "agent_C",
+      "direct_recruiting",
+      "intern"
+    ]
+  },
+  "Incentive": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 6047.0,
+    "mean": 1142.8741496598639
+  },
+  "RemoteWork": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 5.0,
+    "mean": 2.8244897959183675
+  },
+  "MonthlyIncome": {
+    "type": "numerical",
+    "min": 1329.0,
+    "max": 12612.0,
+    "mean": 6922.257142857143
+  },
+  "StressRating": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 5.0,
+    "mean": 2.4993197278911565
+  },
+  "WelfareBenefits": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 4.0,
+    "mean": 2.5
+  },
+  "InHouseFacility": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 1.0,
+    "mean": 0.5965986394557823
+  },
+  "ExternalFacility": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 1.0,
+    "mean": 0.2938775510204082
+  },
+  "ExtendedLeave": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 1.0,
+    "mean": 0.2523809523809524
+  },
+  "FlexibleWork": {
+    "type": "numerical",
+    "min": 0.0,
+    "max": 1.0,
+    "mean": 0.5510204081632653
+  },
+  "StressSelfReported": {
+    "type": "numerical",
+    "min": 1.0,
+    "max": 5.0,
+    "mean": 2.1040816326530614
+  },
+  "Year": {
+    "type": "numerical",
+    "min": 2023.0,
+    "max": 2024.0,
+    "mean": 2023.2
+  }
+}
