@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1b2a">
+  <meta name="description" content="横浜線・東横線の指定区間を、時刻表データだけで素早く検索するQTS">
+  <title>QTS — Quick Train Search</title>
+  <style>
+    :root {
+      --ink: #0d1b2a;
+      --ink-soft: #52606d;
+      --muted: #8492a3;
+      --paper: #f4f7fb;
+      --card: #ffffff;
+      --line: #e3e9f0;
+      --accent: #e94763;
+      --accent-dark: #bd2745;
+      --blue: #1576d2;
+      --blue-soft: #e8f3ff;
+      --green: #16a06c;
+      --green-soft: #e8f8f1;
+      --orange: #ee8a2c;
+      --orange-soft: #fff3e5;
+      --shadow: 0 16px 38px rgba(13, 27, 42, .08);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--paper); }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", YuGothic, Meiryo, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible { outline: 3px solid rgba(21, 118, 210, .28); outline-offset: 2px; }
+    .app-shell { min-height: 100vh; }
+    .topbar {
+      color: #fff;
+      background: linear-gradient(125deg, #0b1827 0%, #122941 70%, #173756 100%);
+      padding: calc(16px + env(safe-area-inset-top)) max(18px, calc((100vw - 1100px) / 2)) 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .topbar::after {
+      content: "";
+      width: 240px; height: 240px;
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 50%;
+      position: absolute; right: -75px; top: -120px;
+      box-shadow: 0 0 0 24px rgba(255,255,255,.025), 0 0 0 48px rgba(255,255,255,.02);
+    }
+    .topbar-inner { max-width: 1100px; margin: 0 auto; position: relative; z-index: 1; }
+    .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 11px; }
+    .brand-mark {
+      width: 40px; height: 40px; border-radius: 13px;
+      display: grid; place-items: center;
+      color: #fff; background: var(--accent);
+      font-weight: 900; letter-spacing: -.06em; font-size: 18px;
+      box-shadow: 0 8px 20px rgba(233,71,99,.25);
+    }
+    .brand-copy strong { display: block; font-size: 17px; letter-spacing: .07em; }
+    .brand-copy span { display: block; margin-top: 2px; color: #a9bacd; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+    .clock-block { text-align: right; }
+    .clock-label { color: #a9bacd; font-size: 10px; letter-spacing: .12em; }
+    #clock { margin-top: 2px; font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 750; letter-spacing: .04em; }
+    .hero { margin-top: 25px; max-width: 700px; }
+    .hero-kicker { margin: 0 0 8px; color: #ffb8c4; font-size: 11px; font-weight: 800; letter-spacing: .16em; }
+    h1 { margin: 0; font-size: clamp(26px, 5vw, 42px); line-height: 1.18; letter-spacing: -.05em; }
+    .hero p { margin: 12px 0 0; color: #bdccdc; font-size: 13px; line-height: 1.8; }
+    main { max-width: 1100px; margin: -1px auto 0; padding: 0 18px 64px; }
+    .control-card {
+      position: relative; z-index: 2;
+      margin-top: 20px; padding: 18px;
+      background: var(--card); border: 1px solid rgba(227,233,240,.9);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+    }
+    .direction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .direction-button {
+      min-height: 72px; padding: 12px 14px; text-align: left;
+      border: 1px solid var(--line); border-radius: 17px; background: #fbfcfe; color: var(--ink);
+      transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    .direction-button:hover { transform: translateY(-1px); border-color: #b8c7d7; }
+    .direction-button.active { color: #fff; border-color: var(--ink); background: var(--ink); box-shadow: 0 10px 24px rgba(13,27,42,.16); }
+    .direction-button .eyebrow { display: block; margin-bottom: 7px; color: var(--accent); font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+    .direction-button.active .eyebrow { color: #ffb8c4; }
+    .direction-button strong { display: block; font-size: 16px; }
+    .direction-button small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .direction-button.active small { color: #b8c8d8; }
+    .time-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .time-context { min-width: 0; }
+    .time-context strong { display: block; font-size: 15px; }
+    .time-context span { display: block; margin-top: 4px; color: var(--ink-soft); font-size: 11px; }
+    .outline-button, .primary-button, .ghost-button {
+      border: 0; border-radius: 12px; padding: 11px 14px; font-size: 12px; font-weight: 800; white-space: nowrap;
+    }
+    .outline-button { color: var(--ink); background: #fff; border: 1px solid var(--line); }
+    .outline-button:hover, .ghost-button:hover { border-color: #adc0d4; background: #f8fafc; }
+    .primary-button { color: #fff; background: var(--accent); box-shadow: 0 8px 17px rgba(233,71,99,.22); }
+    .primary-button:hover { background: var(--accent-dark); }
+    .manual-panel { display: none; margin-top: 13px; padding: 14px; border-radius: 15px; background: #f7f9fc; border: 1px solid var(--line); }
+    .manual-panel.open { display: block; animation: slide-in .2s ease-out; }
+    @keyframes slide-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    .mode-switch { display: inline-flex; padding: 3px; border-radius: 11px; background: #e9eef4; }
+    .mode-switch button { border: 0; border-radius: 8px; padding: 7px 10px; color: var(--ink-soft); background: transparent; font-size: 11px; font-weight: 800; }
+    .mode-switch button.active { color: var(--ink); background: #fff; box-shadow: 0 2px 7px rgba(13,27,42,.08); }
+    .manual-row { display: flex; align-items: end; gap: 10px; margin-top: 12px; }
+    .field { flex: 1; }
+    .field label { display: block; margin-bottom: 5px; color: var(--ink-soft); font-size: 11px; font-weight: 700; }
+    .field input { width: 100%; height: 43px; padding: 0 12px; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: #fff; font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: .08em; }
+    .field input::placeholder { color: #b5bfca; letter-spacing: .04em; }
+    .manual-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+    .status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 25px 2px 12px; }
+    .section-title { margin: 0; font-size: 18px; letter-spacing: -.03em; }
+    .section-subtitle { margin: 4px 0 0; color: var(--ink-soft); font-size: 12px; }
+    .data-badge { flex: none; padding: 7px 10px; color: var(--green); background: var(--green-soft); border-radius: 999px; font-size: 10px; font-weight: 800; }
+    .route-strip { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: thin; }
+    .route-stop { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 11px; font-weight: 700; }
+    .route-stop::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #c4cfda; box-shadow: 0 0 0 4px #eaf0f5; }
+    .route-stop:first-child { color: var(--ink); }
+    .route-stop:first-child::before { background: var(--accent); box-shadow: 0 0 0 4px #fde8ed; }
+    .route-stop:last-child { color: var(--ink); }
+    .route-stop:last-child::before { background: var(--blue); box-shadow: 0 0 0 4px var(--blue-soft); }
+    .route-arrow { flex: 0 0 26px; height: 1px; margin: 0 11px; background: #cfd8e2; position: relative; }
+    .route-arrow::after { content: ""; width: 5px; height: 5px; border-top: 1px solid #aebdca; border-right: 1px solid #aebdca; transform: rotate(45deg); position: absolute; right: 0; top: -3px; }
+    .notice { display: none; margin: 16px 0; padding: 12px 14px; border: 1px solid #f0d5a8; border-radius: 14px; background: #fff8ec; color: #8c5a18; font-size: 12px; line-height: 1.6; }
+    .notice.show { display: block; }
+    .results-scroller { display: flex; gap: 14px; overflow-x: auto; padding: 2px 2px 18px; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+    .result-card { flex: 0 0 min(86vw, 405px); scroll-snap-align: start; padding: 17px; border: 1px solid var(--line); border-radius: 21px; background: var(--card); box-shadow: 0 7px 22px rgba(13,27,42,.05); }
+    .result-card.best { border-color: rgba(233,71,99,.48); box-shadow: 0 12px 32px rgba(233,71,99,.12); }
+    .result-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .result-number { color: var(--muted); font-size: 11px; font-weight: 800; }
+    .result-card.best .result-number { color: var(--accent); }
+    .result-duration { text-align: right; }
+    .result-duration strong { display: block; font-size: 23px; font-variant-numeric: tabular-nums; letter-spacing: -.05em; }
+    .result-duration span { color: var(--muted); font-size: 10px; }
+    .line-legend { display: flex; align-items: center; gap: 7px; margin-top: 13px; padding: 7px 9px; border-radius: 9px; background: #f7f9fb; color: var(--ink-soft); font-size: 10px; font-weight: 700; }
+    .line-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); }
+    .line-dot.jr { background: var(--accent); }
+    .journey { margin-top: 15px; }
+    .journey-row { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; min-height: 48px; position: relative; }
+    .journey-row:not(:last-child)::after { content: ""; width: 1px; background: #dce4eb; position: absolute; left: 4px; top: 17px; bottom: -4px; }
+    .journey-dot { width: 9px; height: 9px; margin-top: 6px; border-radius: 50%; background: #c2ceda; box-shadow: 0 0 0 4px #eef3f7; position: relative; z-index: 1; }
+    .journey-row:first-child .journey-dot { background: var(--accent); box-shadow: 0 0 0 4px #fde8ed; }
+    .journey-row:last-child .journey-dot { background: var(--blue); box-shadow: 0 0 0 4px var(--blue-soft); }
+    .station-name { font-size: 13px; font-weight: 800; }
+    .station-note { margin-top: 3px; color: var(--ink-soft); font-size: 10px; }
+    .station-time { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 800; }
+    .station-time small { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; font-weight: 500; }
+    .transfer-row { margin: 1px 0 9px 62px; padding: 7px 9px; border-left: 2px solid #f0b15e; border-radius: 0 8px 8px 0; background: var(--orange-soft); color: #8a5a1d; font-size: 10px; line-height: 1.5; }
+    .transfer-row strong { font-weight: 800; }
+    .type-badge { display: inline-block; margin-right: 4px; padding: 3px 6px; border-radius: 5px; color: #fff; background: var(--ink-soft); font-size: 9px; font-weight: 800; }
+    .type-badge.rapid { background: #b96821; }
+    .type-badge.express { background: #2877c8; }
+    .type-badge.commuter { background: #7c4ec4; }
+    .result-footer { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .result-footer p { margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.5; }
+    .next-button { flex: none; border: 1px solid #f0b15e; border-radius: 9px; padding: 8px 10px; color: #9b5e12; background: #fffaf2; font-size: 10px; font-weight: 800; }
+    .next-button:hover { background: #fff2d8; }
+    .next-button:disabled { opacity: .45; cursor: not-allowed; }
+    .empty-state { padding: 30px 16px; border: 1px dashed #cbd7e2; border-radius: 18px; background: rgba(255,255,255,.6); text-align: center; color: var(--ink-soft); }
+    .empty-state strong { display: block; color: var(--ink); font-size: 14px; }
+    .empty-state p { margin: 8px 0 0; font-size: 11px; line-height: 1.7; }
+    .footer-note { margin-top: 10px; color: var(--muted); font-size: 10px; line-height: 1.8; }
+    .footer-note a { color: var(--blue); }
+    .loading { padding: 35px; color: var(--ink-soft); text-align: center; font-size: 13px; }
+    @media (min-width: 720px) {
+      .topbar { padding-top: 24px; padding-bottom: 45px; }
+      .control-card { margin-top: 26px; padding: 22px; }
+      .direction-grid { max-width: 640px; }
+      .results-scroller { gap: 16px; }
+      .result-card { flex-basis: 390px; }
+    }
+    @media (max-width: 500px) {
+      .topbar { padding-left: 16px; padding-right: 16px; }
+      main { padding-left: 14px; padding-right: 14px; }
+      .time-toolbar { align-items: flex-start; }
+      .time-toolbar .outline-button { padding-left: 11px; padding-right: 11px; }
+      .manual-row { flex-wrap: wrap; }
+      .manual-row .primary-button { width: 100%; }
+      .data-badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand-row">
+          <div class="brand">
+            <div class="brand-mark">Q</div>
+            <div class="brand-copy"><strong>QTS</strong><span>Quick Train Search</span></div>
+          </div>
+          <div class="clock-block"><div class="clock-label">LOCAL TIME · JST</div><div id="clock">--:--:--</div></div>
+        </div>
+        <div class="hero">
+          <p class="hero-kicker">OFFLINE ROUTE MEMORY</p>
+          <h1>いつもの乗り継ぎを、<br>一瞬で。</h1>
+          <p>横浜線と東横線のローカル時刻表から、乗り換えを含む最短ルートを検索します。</p>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="control-card" aria-label="検索条件">
+        <div class="direction-grid">
+          <button class="direction-button active" data-direction="up" type="button">
+            <span class="eyebrow">上り</span><strong>矢部 → 日吉</strong><small>横浜線から東横線へ</small>
+          </button>
+          <button class="direction-button" data-direction="down" type="button">
+            <span class="eyebrow">下り</span><strong>日吉 → 矢部</strong><small>東横線から横浜線へ</small>
+          </button>
+        </div>
+        <div class="time-toolbar">
+          <div class="time-context"><strong id="time-context">現在時刻から検索</strong><span id="calendar-context">土休日ダイヤ · 2026年11月21日</span></div>
+          <button class="outline-button" id="manual-toggle" type="button" aria-expanded="false">出発時刻を変更</button>
+        </div>
+        <div class="manual-panel" id="manual-panel">
+          <div class="mode-switch" role="tablist" aria-label="検索時刻モード">
+            <button class="active" data-mode="departure" type="button">出発時刻</button>
+            <button data-mode="arrival" type="button">到着時刻</button>
+          </div>
+          <div class="manual-row">
+            <div class="field"><label for="manual-time" id="manual-label">出発時刻（4桁）</label><input id="manual-time" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="例 0830" autocomplete="off" aria-describedby="manual-help"></div>
+            <button class="primary-button" id="manual-search" type="button">この時刻で検索</button>
+          </div>
+          <p class="manual-note" id="manual-help">0830・1915のように4桁で入力してください。端末の画面は拡大しない設定です。</p>
+        </div>
+      </section>
+
+      <div class="status-row">
+        <div><h2 class="section-title">検索結果</h2><p class="section-subtitle" id="result-subtitle">矢部を出発し、日吉までの最短候補を表示</p></div>
+        <span class="data-badge" id="data-badge">ローカルデータ</span>
+      </div>
+      <div class="route-strip" aria-label="検索区間">
+        <span class="route-stop">矢部</span><span class="route-arrow"></span><span class="route-stop">町田</span><span class="route-arrow"></span><span class="route-stop" id="nakayama-route-stop">中山</span><span class="route-arrow" id="nakayama-arrow"></span><span class="route-stop">鴨居</span><span class="route-arrow"></span><span class="route-stop">菊名</span><span class="route-arrow"></span><span class="route-stop">日吉</span>
+      </div>
+      <div class="notice" id="notice" role="status"></div>
+      <div id="results"><div class="loading">時刻表を読み込んでいます…</div></div>
+      <p class="footer-note">時刻表はサイト内のJSONだけを参照します。平日・土休日は日付から自動判定。駅時刻は分単位で表示しています。<br>出典: <a href="https://timetables.jreast.co.jp/" target="_blank" rel="noreferrer">JR東日本</a>・<a href="https://www.tokyu.co.jp/railway/timetable/" target="_blank" rel="noreferrer">東急電鉄</a> 公開時刻表</p>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+      const state = { direction: 'up', mode: 'departure', manualTime: null, day: 'holiday', data: null, plans: [] };
+      const $ = (selector) => document.querySelector(selector);
+      const $$ = (selector) => [...document.querySelectorAll(selector)];
+      const names = { up: { origin: '矢部', destination: '日吉' }, down: { origin: '日吉', destination: '矢部' } };
+
+      const toMin = (value) => {
+        if (!value) return null;
+        const clean = String(value).replace(':', '');
+        const hour = Number(clean.slice(0, 2));
+        const minute = Number(clean.slice(2, 4));
+        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+        return (hour * 60) + minute;
+      };
+      const toTime = (minutes) => {
+        const m = ((minutes % 1440) + 1440) % 1440;
+        return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+      };
+      const durationText = (minutes) => `${Math.max(0, minutes)}分`;
+      const timeAt = (train, station, field = 'departure') => {
+        const point = train && train.times && train.times[station];
+        return point ? toMin(point[field] || point.departure || point.arrival) : null;
+      };
+      const firstAfter = (trains, station, threshold, field = 'departure', predicate = () => true) => trains.find((train) => predicate(train) && timeAt(train, station, field) !== null && timeAt(train, station, field) >= threshold);
+      const sorted = (trains, station, field = 'departure') => [...trains].filter((train) => timeAt(train, station, field) !== null).sort((a, b) => timeAt(a, station, field) - timeAt(b, station, field));
+      const typeClass = (type) => type === '快速' ? 'rapid' : type === '急行' ? 'express' : type === '通勤特急' ? 'commuter' : '';
+      const typeLabel = (type) => type === '各停' ? '各駅停車' : type;
+      const getDay = (date = new Date()) => date.getDay() === 0 || date.getDay() === 6 ? 'holiday' : 'weekday';
+      const dateLabel = (date = new Date()) => `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+      const forward = (raw, reference) => {
+        if (raw === null || raw === undefined) return null;
+        let candidate = raw;
+        while (candidate < reference) candidate += 1440;
+        return candidate;
+      };
+      const tripTime = (train, station, field, baseRaw) => forward(timeAt(train, station, field), baseRaw);
+      const absoluteAfter = (trains, station, threshold, field = 'departure', predicate = () => true) => [...trains]
+        .filter((train) => predicate(train) && timeAt(train, station, field) !== null)
+        .filter((train) => forward(timeAt(train, station, field), threshold) <= threshold + 180)
+        .sort((a, b) => forward(timeAt(a, station, field), threshold) - forward(timeAt(b, station, field), threshold))
+        .find((train) => forward(timeAt(train, station, field), threshold) >= threshold);
+
+      function updateClock() {
+        const now = new Date();
+        $('#clock').textContent = now.toLocaleTimeString('ja-JP', { hour12: false });
+        if (!state.manualTime) {
+          state.day = getDay(now);
+          updateContext();
+        }
+      }
+      function updateContext() {
+        const now = new Date();
+        const label = state.manualTime ? `${state.mode === 'arrival' ? '到着' : '出発'} ${toTime(state.manualTime)} から検索` : '現在時刻から検索';
+        $('#time-context').textContent = label;
+        $('#calendar-context').textContent = `${state.day === 'weekday' ? '平日' : '土休日'}ダイヤ · ${dateLabel(now)}`;
+        $('#result-subtitle').textContent = state.direction === 'up' ? '矢部を出発し、日吉までの最短候補を表示' : '日吉を出発し、矢部までの最短候補を表示';
+        $('#nakayama-route-stop').style.display = state.direction === 'up' ? '' : 'none';
+        $('#nakayama-arrow').style.display = state.direction === 'up' ? '' : 'none';
+        const routeStops = $$('.route-stop');
+        if (state.direction === 'down') {
+          routeStops[0].textContent = '日吉'; routeStops[1].textContent = '菊名'; routeStops[2].textContent = '町田'; routeStops[3].textContent = '矢部';
+          routeStops[4].style.display = 'none';
+          $$('.route-arrow').forEach((arrow, i) => arrow.style.display = i < 3 ? '' : 'none');
+        } else {
+          routeStops[0].textContent = '矢部'; routeStops[1].textContent = '町田'; routeStops[2].textContent = '中山'; routeStops[3].textContent = '鴨居'; routeStops[4].textContent = '菊名'; routeStops[5].textContent = '日吉';
+          routeStops[4].style.display = ''; $$('.route-arrow').forEach((arrow) => arrow.style.display = '');
+        }
+      }
+
+      function buildUpPlan(jr, toyokoTrains, transferIndex = 0) {
+        const originRaw = timeAt(jr, '矢部');
+        const localNakayama = tripTime(jr, '中山', 'arrival', originRaw);
+        const localKikuna = tripTime(jr, '菊名', 'arrival', originRaw);
+        if (localKikuna === null) return null;
+        const rapidOptions = state.data.jr[state.day].up.filter((train) => train.type === '快速' && timeAt(train, '菊名', 'arrival') !== null && forward(timeAt(train, '中山', 'departure'), originRaw) >= (localNakayama ?? 0) + 1 && forward(timeAt(train, '菊名', 'arrival'), originRaw) < localKikuna).sort((a, b) => forward(timeAt(a, '菊名', 'arrival'), originRaw) - forward(timeAt(b, '菊名', 'arrival'), originRaw));
+        const usesRapid = rapidOptions.length > 0;
+        const railArrival = usesRapid ? tripTime(rapidOptions[0], '菊名', 'arrival', originRaw) : localKikuna;
+        const transferTrain = absoluteAfter(toyokoTrains, '菊名', railArrival + 3);
+        if (!transferTrain) return null;
+        const toyokoOptions = [...toyokoTrains].filter((train) => timeAt(train, '菊名') !== null && forward(timeAt(train, '菊名'), railArrival + 3) >= railArrival + 3).sort((a, b) => forward(timeAt(a, '菊名'), railArrival + 3) - forward(timeAt(b, '菊名'), railArrival + 3));
+        const chosenToyoko = toyokoOptions[transferIndex] || toyokoOptions[0];
+        if (!chosenToyoko) return null;
+        const steps = [
+          { station: '矢部', time: originRaw, label: `${typeLabel(jr.type)} · ${jr.trainNumber || ''}`, line: 'jr' },
+          { station: '町田', time: tripTime(jr, '町田', 'arrival', originRaw), label: usesRapid ? '横浜線 各駅停車' : typeLabel(jr.type), line: 'jr' },
+          { station: '中山', time: localNakayama, label: usesRapid ? 'ここで快速へ接続' : typeLabel(jr.type), line: 'jr' },
+          { station: '鴨居', time: usesRapid ? tripTime(rapidOptions[0], '鴨居', 'arrival', originRaw) : tripTime(jr, '鴨居', 'arrival', originRaw), label: usesRapid ? '快速' : typeLabel(jr.type), line: 'jr' },
+          { station: '菊名', time: railArrival, label: usesRapid ? '快速' : typeLabel(jr.type), line: 'jr' },
+          { station: '日吉', time: tripTime(chosenToyoko, '日吉', 'arrival', railArrival), label: typeLabel(chosenToyoko.type), line: 'toyoko' },
+        ];
+        return {
+          direction: 'up', startMinute: originRaw, arrivalMinute: tripTime(chosenToyoko, '日吉', 'arrival', railArrival),
+          transferMinute: railArrival, transferIndex, transferOptions: toyokoOptions,
+          jr, rapid: usesRapid ? rapidOptions[0] : null, toyoko: chosenToyoko, steps,
+          transferNote: usesRapid ? '中山で快速に接続' : '菊名で東横線へ乗り換え（3分）',
+          note: usesRapid ? '横浜線の快速接続を利用' : '菊名で3分乗り換え',
+        };
+      }
+
+      function finishDownPlan(toyoko, jrTrains) {
+        const originRaw = timeAt(toyoko, '日吉');
+        const kikunaArrival = tripTime(toyoko, '菊名', 'arrival', originRaw);
+        const localDirect = absoluteAfter(jrTrains, '菊名', kikunaArrival + 3, 'departure', (train) => train.type === '各駅停車' && timeAt(train, '矢部', 'arrival') !== null);
+        const rapid = absoluteAfter(jrTrains, '菊名', kikunaArrival + 3, 'departure', (train) => train.type === '快速' && timeAt(train, '町田', 'arrival') !== null);
+        let selected = null;
+        let usesRapid = false;
+        let machidaArrival = null;
+        if (rapid) {
+          machidaArrival = tripTime(rapid, '町田', 'arrival', timeAt(rapid, '菊名'));
+          const localAfter = absoluteAfter(jrTrains, '町田', machidaArrival + 1, 'departure', (train) => train.type === '各駅停車' && timeAt(train, '矢部', 'arrival') !== null);
+          if (localAfter) { selected = { rapid, localAfter }; usesRapid = true; }
+        }
+        if (!selected && localDirect) selected = { localAfter: localDirect };
+        if (!selected) return null;
+        const endTrain = selected.localAfter;
+        const endBase = usesRapid ? timeAt(endTrain, '町田') : timeAt(endTrain, '菊名');
+        const arrivalMinute = tripTime(endTrain, '矢部', 'arrival', endBase);
+        const steps = [
+          { station: '日吉', time: originRaw, label: typeLabel(toyoko.type), line: 'toyoko' },
+          { station: '菊名', time: kikunaArrival, label: '東横線 · 乗り換え', line: 'toyoko' },
+          { station: '町田', time: usesRapid ? machidaArrival : tripTime(endTrain, '町田', 'arrival', endBase), label: usesRapid ? '横浜線快速 → 各停' : typeLabel(endTrain.type), line: 'jr' },
+          { station: '矢部', time: arrivalMinute, label: '横浜線 各駅停車', line: 'jr' },
+        ];
+        return {
+          direction: 'down', startMinute: originRaw, arrivalMinute, transferMinute: kikunaArrival,
+          toyoko, jr: endTrain, rapid: usesRapid ? selected.rapid : null, localAfter: usesRapid ? selected.localAfter : null,
+          steps, transferNote: '菊名で横浜線へ乗り換え（3分）', note: usesRapid ? '町田で各駅停車に接続' : '菊名で3分乗り換え',
+        };
+      }
+
+      function enumeratePlans() {
+        const jrTrains = state.data.jr[state.day][state.direction];
+        const toyokoTrains = state.data.toyoko[state.day][state.direction];
+        const plans = [];
+        if (state.direction === 'up') {
+          for (const jr of sorted(jrTrains, '矢部')) {
+            const plan = buildUpPlan(jr, toyokoTrains);
+            if (plan) plans.push(plan);
+          }
+        } else {
+          for (const toyoko of sorted(toyokoTrains, '日吉')) {
+            const plan = finishDownPlan(toyoko, jrTrains);
+            if (plan) { plan.transferOptions = sorted(toyokoTrains, '日吉').filter((train) => timeAt(train, '日吉') >= timeAt(toyoko, '日吉')); plan.transferIndex = plan.transferOptions.findIndex((train) => train.id === toyoko.id); plans.push(plan); }
+          }
+        }
+        return plans;
+      }
+
+      function filterPlans(allPlans, target) {
+        const deadline = state.mode === 'arrival' && target < 180 ? target + 1440 : target;
+        const latestStart = Math.min(deadline, 1439);
+        const valid = allPlans.filter((plan) => state.mode === 'arrival' ? plan.arrivalMinute <= deadline && plan.startMinute <= latestStart : plan.startMinute >= target);
+        valid.sort((a, b) => state.mode === 'arrival' ? (deadline - a.arrivalMinute) - (deadline - b.arrivalMinute) || b.startMinute - a.startMinute : a.arrivalMinute - b.arrivalMinute || a.startMinute - b.startMinute);
+        return valid.slice(0, 10);
+      }
+
+      function inputTarget() {
+        if (state.manualTime !== null) return state.manualTime;
+        const now = new Date();
+        return now.getHours() * 60 + now.getMinutes();
+      }
+
+      function showNotice(text) { const el = $('#notice'); el.textContent = text; el.classList.add('show'); }
+      function clearNotice() { $('#notice').classList.remove('show'); }
+
+      function stationRows(plan) {
+        return plan.steps.map((step, index) => {
+          const previous = plan.steps[index - 1];
+          const isTransfer = previous && step.station === '菊名';
+          const note = isTransfer ? '乗換 3分' : step.label;
+          return `${isTransfer ? `<div class="transfer-row"><strong>菊名で乗り換え</strong><br>次の列車は ${toTime(timeAt(plan.toyoko, '菊名'))} 発 · 3分確保</div>` : ''}<div class="journey-row"><span class="journey-dot"></span><div><div class="station-name">${step.station}</div><div class="station-note">${note}</div></div><div class="station-time">${toTime(step.time)}<small>${index === 0 ? '発' : index === plan.steps.length - 1 ? '着' : '着・発'}</small></div></div>`;
+        }).join('');
+      }
+
+      function renderPlan(plan, index) {
+        const total = plan.arrivalMinute - plan.startMinute;
+        const transferButton = plan.transferOptions && plan.transferIndex < plan.transferOptions.length - 1 ? `<button class="next-button" type="button" data-next-index="${index}">一本後 ↗</button>` : '';
+        const badge = plan.direction === 'up' && plan.rapid ? '<span class="type-badge rapid">快速接続</span>' : plan.direction === 'down' && plan.rapid ? '<span class="type-badge rapid">快速 → 各停</span>' : '';
+        const railName = plan.direction === 'up' && plan.rapid ? '横浜線（各停＋快速）' : plan.direction === 'down' && plan.rapid ? '横浜線（快速＋各停）' : '横浜線';
+        return `<article class="result-card ${index === 0 ? 'best' : ''}">
+          <div class="result-head"><div><div class="result-number">${index === 0 ? 'おすすめ' : `候補 ${String(index + 1).padStart(2, '0')}`}</div><div style="margin-top:7px">${badge}</div></div><div class="result-duration"><strong>${durationText(total)}</strong><span>${toTime(plan.startMinute)} → ${toTime(plan.arrivalMinute)}</span></div></div>
+          <div class="line-legend"><span class="line-dot jr"></span>${railName}<span style="color:#c1ccd7">＋</span><span class="line-dot"></span>東横線 ${typeLabel(plan.toyoko.type)}</div>
+          <div class="journey">${stationRows(plan)}</div>
+          <div class="result-footer"><p>${plan.transferNote}<br>${plan.note}</p>${transferButton}</div>
+        </article>`;
+      }
+
+      function renderResults() {
+        clearNotice();
+        if (!state.data) return;
+        const target = inputTarget();
+        const plans = filterPlans(enumeratePlans(), target);
+        state.plans = plans;
+        if (!plans.length) {
+          $('#results').innerHTML = `<div class="empty-state"><strong>${state.mode === 'arrival' ? '到着時刻に間に合う列車が見つかりません' : 'この時刻以降の列車が見つかりません'}</strong><p>時刻を4桁で入力するか、日付を変えて再検索してください。</p></div>`;
+          return;
+        }
+        $('#results').innerHTML = `<div class="results-scroller">${plans.map(renderPlan).join('')}</div>`;
+        $$('.next-button').forEach((button) => button.addEventListener('click', () => advancePlan(Number(button.dataset.nextIndex))));
+      }
+
+      function advancePlan(index) {
+        const plan = state.plans[index];
+        if (!plan || !plan.transferOptions || plan.transferIndex >= plan.transferOptions.length - 1) return;
+        const nextIndex = plan.transferIndex + 1;
+        const nextToyoko = plan.transferOptions[nextIndex];
+        if (plan.direction === 'up') {
+          const updated = buildUpPlan(plan.jr, state.data.toyoko[state.day].up, nextIndex);
+          if (updated) state.plans[index] = updated;
+        } else {
+          const updated = finishDownPlan(nextToyoko, state.data.jr[state.day].down);
+          if (updated) { updated.transferOptions = plan.transferOptions; updated.transferIndex = nextIndex; state.plans[index] = updated; }
+        }
+        const holder = state.plans[index];
+        const html = renderPlan(holder, index);
+        const card = $$('.result-card')[index];
+        if (card) { const wrapper = document.createElement('div'); wrapper.innerHTML = html; card.replaceWith(wrapper.firstElementChild); }
+        $$('.next-button').forEach((button) => button.onclick = () => advancePlan(Number(button.dataset.nextIndex)));
+      }
+
+      function setDirection(direction) {
+        state.direction = direction;
+        $$('.direction-button').forEach((button) => button.classList.toggle('active', button.dataset.direction === direction));
+        updateContext(); renderResults();
+      }
+      function setMode(mode) {
+        state.mode = mode;
+        $$('.mode-switch button').forEach((button) => button.classList.toggle('active', button.dataset.mode === mode));
+        $('#manual-label').textContent = `${mode === 'arrival' ? '到着' : '出発'}時刻（4桁）`;
+        $('#manual-time').placeholder = mode === 'arrival' ? '例 1815' : '例 0830';
+        updateContext();
+      }
+      function readManualTime() {
+        const raw = $('#manual-time').value.trim();
+        if (!/^([01]\d|2[0-3])[0-5]\d$/.test(raw)) { showNotice('時刻は0830や1915のように、24時間制の4桁で入力してください。'); return false; }
+        state.manualTime = toMin(raw); state.day = getDay(new Date()); updateContext(); return true;
+      }
+
+      async function loadData() {
+        try {
+          const [jr, toyoko] = await Promise.all([fetch('yokohama_line_.json').then((r) => { if (!r.ok) throw new Error('JR data'); return r.json(); }), fetch('touyoko_line.json').then((r) => { if (!r.ok) throw new Error('Toyoko data'); return r.json(); })]);
+          state.data = { jr, toyoko }; state.day = getDay(new Date()); updateContext(); renderResults();
+        } catch (error) {
+          $('#results').innerHTML = `<div class="empty-state"><strong>時刻表データを読み込めませんでした</strong><p>index.htmlと2つのJSONを同じフォルダに置き、GitHub PagesなどのWebサーバーから開いてください。</p></div>`;
+          showNotice('ローカルJSONを読み込めません。ファイル構成を確認してください。');
+        }
+      }
+
+      $$('.direction-button').forEach((button) => button.addEventListener('click', () => setDirection(button.dataset.direction)));
+      $('#manual-toggle').addEventListener('click', () => { const panel = $('#manual-panel'); const open = panel.classList.toggle('open'); $('#manual-toggle').setAttribute('aria-expanded', String(open)); });
+      $$('.mode-switch button').forEach((button) => button.addEventListener('click', () => setMode(button.dataset.mode)));
+      $('#manual-search').addEventListener('click', () => { if (readManualTime()) renderResults(); });
+      $('#manual-time').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); if (readManualTime()) renderResults(); } });
+      setInterval(updateClock, 1000); updateClock(); loadData();
+    })();
+  </script>
+</body>
+</html>

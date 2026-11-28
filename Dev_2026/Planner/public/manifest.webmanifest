@@ -1,0 +1,29 @@
+{
+  "name": "Planner — 家族の予定",
+  "short_name": "Planner",
+  "description": "家族の予定をひとつの場所に。今日と明日、そして月のカレンダーをまとめて見渡せます。",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#F6F4EF",
+  "theme_color": "#F6F4EF",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/image/logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/image/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

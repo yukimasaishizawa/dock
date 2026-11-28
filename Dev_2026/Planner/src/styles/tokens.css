@@ -1,0 +1,78 @@
+/* ==========================================================================
+   Planner — design tokens
+   Warm paper, ink, and a single persimmon accent. Everything else is
+   structure: hairlines, soft shadows, and generous negative space.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --paper: #f6f4ef;
+  --paper-2: #efece4;
+  --surface: #ffffff;
+  --surface-2: #faf8f3;
+  --surface-3: #f2efe7;
+
+  /* Ink */
+  --ink: #1b1a17;
+  --ink-soft: #423e37;
+  --muted: #7b766b;
+  --faint: #a8a294;
+
+  /* Lines */
+  --line: #e6e1d6;
+  --line-strong: #d6d0c1;
+
+  /* Brand */
+  --brand: #d3562b;
+  --brand-deep: #ab3f1c;
+  --brand-soft: #fbe9df;
+  --brand-tint: #fdf4ee;
+
+  /* Status */
+  --ok: #2f9e63;
+  --warn: #d9a21a;
+  --danger: #c4452f;
+
+  /* Weekday accents */
+  --sun: #c2564a;
+  --sat: #4a76a8;
+
+  /* Radii */
+  --r-xs: 6px;
+  --r-sm: 9px;
+  --r-md: 13px;
+  --r-lg: 17px;
+  --r-xl: 24px;
+  --r-full: 999px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgba(27, 26, 23, 0.05);
+  --shadow-2: 0 1px 2px rgba(27, 26, 23, 0.04), 0 10px 24px -18px rgba(27, 26, 23, 0.35);
+  --shadow-3: 0 2px 6px rgba(27, 26, 23, 0.05), 0 28px 64px -28px rgba(27, 26, 23, 0.42);
+  --shadow-brand: 0 6px 18px -8px rgba(211, 86, 43, 0.55);
+
+  /* Type */
+  --font-sans: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Hiragino Sans',
+    'Yu Gothic UI', 'Segoe UI', sans-serif;
+  --font-display: 'Instrument Serif', 'Noto Serif JP', 'Times New Roman', serif;
+
+  /* Layout */
+  --header-h: 60px;
+  --page-max: 1040px;
+  --pad: clamp(16px, 4.4vw, 34px);
+
+  /* Member palette — used for avatars, dots and tiles */
+  --m0: #d3562b;
+  --m1: #3f7ca6;
+  --m2: #5c8a5e;
+  --m3: #a8703f;
+  --m4: #8a6ba8;
+  --m5: #b25573;
+}

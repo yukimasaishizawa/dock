@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>お得チェッカー | 家電購入判断アシスト</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .fade-enter-from, .fade-leave-to {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        .chart-container {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            margin: 0 auto;
+        }
+        .chart-center-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="overflow-y-scroll">
+    <div id="app" class="min-h-screen flex items-center justify-center p-4 sm:p-8">
+        
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-xl overflow-hidden relative">
+            <!-- ヘッダー -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white text-center shadow-md z-10 relative">
+                <h1 class="text-2xl font-bold tracking-wider"><i class="fa-solid fa-tags mr-2"></i>お得チェッカー</h1>
+                <p class="text-sm text-blue-100 mt-1 opacity-90">家電の「買い時」をスコアで判定</p>
+                
+                <div class="mt-4 flex justify-between items-center px-2">
+                    <div v-for="step in 6" :key="step" class="flex-1 flex items-center">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors duration-300"
+                             :class="currentStep >= step ? 'bg-white text-blue-700 shadow-lg' : 'bg-blue-800 text-blue-300'">
+                            {{ step }}
+                        </div>
+                        <div v-if="step < 6" class="flex-1 h-1 mx-1 rounded-full transition-colors duration-300"
+                             :class="currentStep > step ? 'bg-white' : 'bg-blue-800'"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 sm:p-10 relative">
+                <transition name="fade" mode="out-in">
+                    
+                    <!-- STEP 1: メーカー選択 -->
+                    <div v-if="currentStep === 1" key="step1" class="w-full">
+                        <h2 class="text-xl font-bold mb-6 text-center text-gray-700">検討しているメーカーを選択してください</h2>
+                        <div class="relative mb-6">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fa-solid fa-search"></i>
+                            </span>
+                            <input type="text" v-model="searchBrandQuery" placeholder="メーカー名を入力 (例: ソニー, Apple)" 
+                                   class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow text-lg">
+                        </div>
+                        
+                        <div class="max-h-60 overflow-y-auto mb-6 bg-gray-50 rounded-lg border border-gray-100 shadow-inner">
+                            <button v-for="brand in filteredBrands" :key="brand.name" @click="selectBrand(brand)"
+                                    class="w-full flex justify-between items-center px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors font-medium">
+                                <span>{{ brand.name }}</span>
+                                <span class="text-xs text-gray-400">維持率: {{ brand.rate.toFixed(2) }}</span>
+                            </button>
+                            <div v-if="filteredBrands.length === 0 && searchBrandQuery !== ''" class="px-4 py-3 text-gray-500 text-center">
+                                見つかりませんでした
+                            </div>
+                        </div>
+
+                        <div class="text-center mt-6">
+                            <button @click="selectBrand(null)" class="text-blue-600 hover:text-blue-800 underline font-medium transition-colors">
+                                メーカー未選択で続行する
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2: 分野選択 -->
+                    <div v-if="currentStep === 2" key="step2" class="w-full">
+                        <h2 class="text-xl font-bold mb-6 text-center text-gray-700">
+                            {{ selectedBrand ? selectedBrand.name + ' の' : 'すべての' }}分野を選択してください
+                        </h2>
+                        
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+                            <button v-for="category in availableCategories" :key="category" @click="selectCategory(category)"
+                                    class="py-3 px-2 border-2 rounded-xl font-medium transition-all duration-200"
+                                    :class="selectedCategory === category ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md' : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-gray-50'">
+                                {{ category }}
+                            </button>
+                        </div>
+
+                        <div class="flex justify-between">
+                            <button @click="currentStep = 1" class="px-5 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors">戻る</button>
+                            <button @click="currentStep = 3" :disabled="!selectedCategory" 
+                                    class="px-8 py-2.5 bg-blue-600 text-white rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50 transition-all">
+                                次へ <i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3: 発売時期と価格入力 -->
+                    <div v-if="currentStep === 3" key="step3" class="w-full">
+                        <h2 class="text-xl font-bold mb-6 text-center text-gray-700">発売時期と基準価格を入力してください</h2>
+                        
+                        <div class="space-y-5 mb-8">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">発売時期 (必須)</label>
+                                <div class="flex gap-4">
+                                    <div class="relative flex-1">
+                                        <select v-model="releaseYear" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white">
+                                            <option value="" disabled>年を選択</option>
+                                            <option v-for="year in availableYears" :key="year" :value="year">{{ year }}年</option>
+                                        </select>
+                                        <span class="absolute right-4 top-2.5 text-gray-400 pointer-events-none">
+                                            <i class="fa-solid fa-chevron-down text-sm"></i>
+                                        </span>
+                                    </div>
+                                    <div class="relative flex-1">
+                                        <select v-model="releaseMonth" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white">
+                                            <option value="" disabled>月を選択</option>
+                                            <option v-for="month in 12" :key="month" :value="month">{{ month }}月</option>
+                                        </select>
+                                        <span class="absolute right-4 top-2.5 text-gray-400 pointer-events-none">
+                                            <i class="fa-solid fa-chevron-down text-sm"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">メーカー直販価格 / 発売時価格 (必須)</label>
+                                <div class="relative">
+                                    <input type="number" v-model="msrpPrice" placeholder="例: 150000" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <span class="absolute right-4 top-2 text-gray-500">円</span>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 mb-1">実店舗 最安価格 (任意)</label>
+                                    <div class="relative">
+                                        <input type="number" v-model="storePrice" placeholder="空欄なら自動推測" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <span class="absolute right-4 top-2 text-gray-500">円</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 mb-1">オンライン 最安価格 (任意)</label>
+                                    <div class="relative">
+                                        <input type="number" v-model="onlinePrice" placeholder="空欄なら自動推測" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <span class="absolute right-4 top-2 text-gray-500">円</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between">
+                            <button @click="currentStep = 2" class="px-5 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors">戻る</button>
+                            <button @click="validateAndNextStep3" :disabled="!releaseYear || !releaseMonth || !msrpPrice" 
+                                    class="px-8 py-2.5 bg-blue-600 text-white rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50 transition-all">
+                                次へ <i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 4: 値引き前価格と値引き・還元 -->
+                    <div v-if="currentStep === 4" key="step4" class="w-full">
+                        <h2 class="text-xl font-bold mb-4 text-center text-gray-700">交渉・値引き情報を追加</h2>
+                        
+                        <!-- 今回追加：値引き前価格（交渉前の提示価格） -->
+                        <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-200">
+                            <label class="block text-sm font-bold text-blue-900 mb-1">
+                                <i class="fa-solid fa-tag mr-2 text-blue-600"></i>値引き前の提示価格 / 見積もり価格 (任意)
+                            </label>
+                            <p class="text-xs text-blue-700 mb-2">店頭表示価格や交渉前の提示額を入力してください（空欄時は前のステップの最安価格を使用）。</p>
+                            <div class="relative">
+                                <input type="number" v-model="initialPrice" placeholder="例: 130000" class="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                                <span class="absolute right-4 top-2 text-gray-500">円</span>
+                            </div>
+                        </div>
+
+                        <!-- 直接値引き -->
+                        <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <h3 class="font-bold text-gray-700 mb-3"><i class="fa-solid fa-arrow-trend-down text-red-500 mr-2"></i>直接値引き (ここからの割引額)</h3>
+                            <div v-for="(discount, index) in discounts" :key="'d'+index" class="flex gap-2 mb-2 items-center">
+                                <input type="number" v-model="discount.amount" placeholder="値引き額" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
+                                <span class="text-gray-600">円</span>
+                                <button @click="discounts.splice(index, 1)" class="text-red-500 hover:text-red-700 p-2"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                            <button @click="discounts.push({amount: null})" class="text-sm text-blue-600 font-bold hover:underline mt-1"><i class="fa-solid fa-plus mr-1"></i>値引きを追加</button>
+                        </div>
+
+                        <!-- 購入後還元 -->
+                        <div class="mb-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <h3 class="font-bold text-gray-700 mb-3"><i class="fa-solid fa-coins text-yellow-500 mr-2"></i>購入後還元</h3>
+                            <div v-for="(reward, index) in rewards" :key="'r'+index" class="flex flex-col gap-2 mb-4 p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+                                <div class="flex gap-2 items-center">
+                                    <input type="number" v-model="reward.amount" placeholder="金額/ポイント数" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
+                                    <select v-model="reward.type" class="px-3 py-2 border border-gray-300 rounded-lg bg-white">
+                                        <option value="cash">現金キャッシュバック</option>
+                                        <option value="point">ポイント還元</option>
+                                    </select>
+                                    <button @click="rewards.splice(index, 1)" class="text-red-500 hover:text-red-700 p-2"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                                <div v-if="reward.type === 'point'" class="flex items-center gap-3 mt-1 pl-1">
+                                    <span class="text-xs text-gray-500">ポイントを使う予定は？</span>
+                                    <label class="text-sm flex items-center gap-1 cursor-pointer"><input type="radio" :name="'use'+index" :value="true" v-model="reward.willUse" class="accent-blue-600"> ある</label>
+                                    <label class="text-sm flex items-center gap-1 cursor-pointer"><input type="radio" :name="'use'+index" :value="false" v-model="reward.willUse" class="accent-blue-600"> ない</label>
+                                </div>
+                            </div>
+                            <button @click="rewards.push({amount: null, type: 'cash', willUse: true})" class="text-sm text-blue-600 font-bold hover:underline"><i class="fa-solid fa-plus mr-1"></i>還元を追加</button>
+                        </div>
+
+                        <div class="flex justify-between">
+                            <button @click="currentStep = 3" class="px-5 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors">戻る</button>
+                            <button @click="currentStep = 5" class="px-8 py-2.5 bg-blue-600 text-white rounded-lg font-bold shadow-md hover:bg-blue-700 transition-all">
+                                次へ <i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 5: 質問 -->
+                    <div v-if="currentStep === 5" key="step5" class="w-full">
+                        <h2 class="text-xl font-bold mb-2 text-center text-gray-700">最終チェック (全10問)</h2>
+                        <p class="text-xs text-center text-gray-500 mb-6">状況に合わせて選択してください</p>
+                        
+                        <div class="space-y-6">
+                            <div v-for="(q, qIndex) in questions" :key="qIndex" class="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                <p class="font-bold text-gray-800 mb-3 text-sm">Q{{ qIndex + 1 }}. {{ q.text }}</p>
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <label v-for="(opt, oIndex) in q.options" :key="oIndex" 
+                                           class="flex-1 text-center py-2 px-3 rounded-lg border cursor-pointer transition-colors text-sm font-medium"
+                                           :class="q.answer === opt.score ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-100'">
+                                        <input type="radio" :name="'q'+qIndex" :value="opt.score" v-model="q.answer" class="hidden">
+                                        {{ opt.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between mt-8 relative bg-white pt-4">
+                            <button @click="currentStep = 4" class="px-5 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors">戻る</button>
+                            <button @click="calculateFinalScore" :disabled="!allQuestionsAnswered" 
+                                    class="px-8 py-2.5 bg-indigo-600 text-white rounded-lg font-bold shadow-lg hover:bg-indigo-700 disabled:opacity-50 transition-all">
+                                判定結果を見る <i class="fa-solid fa-chart-pie ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 6: 結果発表 -->
+                    <div v-if="currentStep === 6" key="step6" class="w-full">
+                        
+                        <!-- 保存（スクリーンショット）対象エリア -->
+                        <div id="captureArea" class="bg-white p-2 rounded-xl">
+                            <div class="text-center mb-6">
+                                <h2 class="text-2xl font-black mb-1 text-gray-800">判定結果</h2>
+                                <p class="text-sm font-bold" :class="verdictColor">{{ verdictTitle }}</p>
+                            </div>
+                            
+                            <div class="chart-container mb-6">
+                                <canvas id="scoreChart"></canvas>
+                                <div class="chart-center-text">
+                                    <span class="text-5xl font-black text-gray-800">{{ totalScore }}</span>
+                                    <span class="text-lg text-gray-500 font-bold">/100</span>
+                                    <p class="text-xs text-gray-400 mt-1">総合スコア</p>
+                                </div>
+                            </div>
+
+                            <div class="bg-gray-50 rounded-xl p-4 mb-6 shadow-inner text-left max-w-md mx-auto">
+                                <p class="text-sm text-gray-700 font-bold mb-2 border-b pb-1">アドバイス</p>
+                                <p class="text-sm text-gray-700 leading-relaxed">{{ adviceText }}</p>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3 max-w-md mx-auto mb-4">
+                                <div class="bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm col-span-2 sm:col-span-1">
+                                    <p class="text-xs text-gray-500 mb-1">値引き前提示額</p>
+                                    <p class="text-md font-bold text-gray-700">{{ formatPrice(calculatedBeforePrice) }} <span class="text-xs">円</span></p>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm col-span-2 sm:col-span-1">
+                                    <p class="text-xs text-gray-500 mb-1">値引き・還元額 (引率)</p>
+                                    <p class="text-md font-bold text-red-600">-{{ formatPrice(calculatedDiscountAmount) }} <span class="text-xs">円 ({{ calculatedDiscountRate.toFixed(1) }}%)</span></p>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm">
+                                    <p class="text-xs text-gray-500 mb-1">実質負担額</p>
+                                    <p class="text-lg font-bold text-blue-700">{{ formatPrice(calculatedRealCost) }} <span class="text-xs">円</span></p>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-lg p-3 text-center shadow-sm">
+                                    <p class="text-xs text-gray-500 mb-1">妥当ライン(目安)</p>
+                                    <p class="text-lg font-bold text-gray-600">{{ formatPrice(calculatedFairPrice) }} <span class="text-xs">円</span></p>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center text-[10px] text-gray-300 mt-2">
+                                Generated by お得チェッカー
+                            </div>
+                        </div>
+                        
+                        <!-- アクションボタンエリア -->
+                        <div class="flex flex-col items-center gap-4 mt-8">
+                            <button @click="saveScreenshot" class="w-full max-w-xs py-3 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl font-bold shadow-sm hover:bg-indigo-100 transition-colors flex items-center justify-center">
+                                <i class="fa-solid fa-camera mr-2"></i> 結果を画像として保存
+                            </button>
+
+                            <button @click="resetApp" class="w-full max-w-xs py-3 bg-gray-800 text-white rounded-xl font-bold shadow-md hover:bg-gray-900 transition-colors flex items-center justify-center">
+                                次の商品をチェックする <i class="fa-solid fa-rotate-right ml-2"></i>
+                            </button>
+                        </div>
+
+                    </div>
+
+                </transition>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const currentStep = ref(1);
+                
+                const brandList = [
+                    { name: "Apple", rate: 1.25, aliases: ["アップル", "あっぷる"] },
+                    { name: "Sony", rate: 1.15, aliases: ["ソニー", "そにー"] },
+                    { name: "Canon", rate: 1.18, aliases: ["キャノン", "キヤノン", "きゃのん"] },
+                    { name: "Nikon", rate: 1.15, aliases: ["ニコン", "にこん"] },
+                    { name: "Fujifilm", rate: 1.18, aliases: ["富士フイルム", "フジフイルム", "フジフィルム", "ふじふいるむ"] },
+                    { name: "Dyson", rate: 1.15, aliases: ["ダイソン", "だいそん"] },
+                    { name: "Bose", rate: 1.15, aliases: ["ボーズ", "ぼーず"] },
+                    { name: "Sennheiser", rate: 1.12, aliases: ["ゼンハイザー", "ぜんはいざー"] },
+                    { name: "Balmuda", rate: 1.10, aliases: ["バルミューダ", "ばるみゅーだ"] },
+                    { name: "Panasonic", rate: 1.10, aliases: ["パナソニック", "ぱなそにっく", "松下"] },
+                    { name: "Hitachi", rate: 1.05, aliases: ["日立", "ひたち", "ヒタチ"] },
+                    { name: "Mitsubishi Electric", rate: 1.03, aliases: ["三菱電機", "三菱", "みつびし", "ミツビシ"] },
+                    { name: "SHARP", rate: 1.00, aliases: ["シャープ", "しゃーぷ"] },
+                    { name: "Toshiba/TCL", rate: 0.98, aliases: ["東芝", "とうしば", "トウシバ", "TCL", "ティーシーエル"] },
+                    { name: "LG Electronics", rate: 0.95, aliases: ["LG", "エルジー", "えるじー"] },
+                    { name: "Samsung", rate: 1.02, aliases: ["サムスン", "さむすん", "Galaxy", "ギャラクシー"] },
+                    { name: "Yamaha", rate: 1.08, aliases: ["ヤマハ", "やまは"] },
+                    { name: "Google", rate: 1.05, aliases: ["グーグル", "ぐーぐる", "Pixel", "ピクセル"] },
+                    { name: "Zojirushi", rate: 1.05, aliases: ["象印", "ぞうじるし", "ゾウジルシ"] },
+                    { name: "Tiger", rate: 1.03, aliases: ["タイガー", "たいがー", "タイガー魔法瓶"] },
+                    { name: "De'Longhi", rate: 1.08, aliases: ["デロンギ", "でろんぎ"] },
+                    { name: "Philips", rate: 0.98, aliases: ["フィリップス", "ふぃりっぷす"] },
+                    { name: "ASUS", rate: 0.98, aliases: ["エイスース", "えいすーす", "アスース"] },
+                    { name: "Dell", rate: 0.95, aliases: ["デル", "でる"] },
+                    { name: "HP", rate: 0.95, aliases: ["ヒューレットパッカード", "エイチピー"] },
+                    { name: "Lenovo", rate: 0.92, aliases: ["レノボ", "れのぼ"] },
+                    { name: "Iris Ohyama", rate: 0.88, aliases: ["アイリスオーヤマ", "アイリス", "あいりすおーやま"] },
+                    { name: "Yamazen", rate: 0.85, aliases: ["山善", "やまぜん", "ヤマゼン"] },
+                    { name: "Twinbird", rate: 0.88, aliases: ["ツインバード", "ついんばーど"] },
+                    { name: "Haier", rate: 0.85, aliases: ["ハイアール", "はいあーる"] },
+                    { name: "AQUA", rate: 0.90, aliases: ["アクア", "あくあ"] },
+                    { name: "Hisense", rate: 0.88, aliases: ["ハイセンス", "はいせんす"] },
+                    { name: "Anker", rate: 0.92, aliases: ["アンカー", "あんかー"] },
+                    { name: "Elecom", rate: 0.88, aliases: ["エレコム", "えれこむ"] },
+                    { name: "BUFFALO", rate: 0.90, aliases: ["バッファロー", "ばっふぁろー"] },
+                    { name: "Acer", rate: 0.88, aliases: ["エイサー", "えいさー"] },
+                    { name: "MSI", rate: 0.95, aliases: ["エムエスアイ"] },
+                    { name: "Xiaomi", rate: 0.88, aliases: ["シャオミ", "しゃおみ"] },
+                    { name: "OPPO", rate: 0.88, aliases: ["オッポ", "おっぽ"] },
+                    { name: "Siroca", rate: 0.90, aliases: ["シロカ", "しろか"] }
+                ];
+
+                const csvData = ref([]);
+                const allCategories = ref(['テレビ', '冷蔵庫', '洗濯機', 'エアコン', 'PC', 'スマホ', 'オーディオ', 'カメラ', '掃除機', 'その他']);
+                
+                const searchBrandQuery = ref('');
+                const selectedBrand = ref(null);
+                const selectedCategory = ref(null);
+                
+                const releaseYear = ref('');
+                const releaseMonth = ref('');
+                const msrpPrice = ref(null);
+                const storePrice = ref(null);
+                const onlinePrice = ref(null);
+                
+                const initialPrice = ref(null); // 値引き前提示価格
+                const discounts = ref([]);
+                const rewards = ref([]);
+
+                const questions = ref([
+                    { text: "この製品の使用頻度は？", options: [{label: "毎日", score: 2}, {label: "週数回", score: 1}, {label: "月数回以下", score: 0}], answer: null },
+                    { text: "欲しいと思ってからどのくらい？", options: [{label: "半年以上", score: 2}, {label: "1ヶ月〜半年", score: 1}, {label: "直感/最近", score: 0}], answer: null },
+                    { text: "現在、代替手段はありますか？", options: [{label: "ない/壊れた", score: 2}, {label: "あるが不満", score: 1}, {label: "十分使える", score: 0}], answer: null },
+                    { text: "生活の質は大きく向上しますか？", options: [{label: "劇的に向上", score: 2}, {label: "少し向上", score: 1}, {label: "変わらない", score: 0}], answer: null },
+                    { text: "予算（無理なく支払えるか）は？", options: [{label: "余裕で一括", score: 2}, {label: "少し節約", score: 1}, {label: "厳しい/分割", score: 0}], answer: null },
+                    { text: "置き場所や設置環境は？", options: [{label: "完璧に準備済", score: 2}, {label: "工夫すれば", score: 1}, {label: "未確認", score: 0}], answer: null },
+                    { text: "半年以内に後継機の噂は？", options: [{label: "ない/出たばかり", score: 2}, {label: "わからない", score: 1}, {label: "出る予定あり", score: 0}], answer: null },
+                    { text: "デザインは好みに合っていますか？", options: [{label: "一目惚れ/完璧", score: 2}, {label: "まあまあ", score: 1}, {label: "気にしない", score: 0}], answer: null },
+                    { text: "家族や同居人も賛成/活用しますか？", options: [{label: "大賛成/皆で使う", score: 2}, {label: "自分専用", score: 1}, {label: "反対されている", score: 0}], answer: null },
+                    { text: "今見送った場合、後悔しますか？", options: [{label: "絶対後悔する", score: 2}, {label: "少し後悔するかも", score: 1}, {label: "忘れると思う", score: 0}], answer: null },
+                ]);
+
+                const totalScore = ref(0);
+                const calculatedRealCost = ref(0);
+                const calculatedFairPrice = ref(0);
+                const calculatedBeforePrice = ref(0);
+                const calculatedDiscountAmount = ref(0);
+                const calculatedDiscountRate = ref(0);
+                
+                const verdictTitle = ref('');
+                const verdictColor = ref('');
+                const adviceText = ref('');
+                let chartInstance = null;
+
+                const availableYears = computed(() => {
+                    const currentYear = new Date().getFullYear();
+                    const years = [];
+                    for (let i = currentYear + 1; i >= 2010; i--) {
+                        years.push(i);
+                    }
+                    return years;
+                });
+
+                onMounted(() => {
+                    Papa.parse('brand_category_price_decline_summary_1.0.csv', {
+                        download: true,
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true,
+                        complete: (results) => {
+                            if(results.data && results.data.length > 0) {
+                                csvData.value = results.data;
+                                const cSet = new Set();
+                                results.data.forEach(row => {
+                                    const c = row['Category'] || row['category'] || row['分野'] || row['カテゴリ'];
+                                    if(c) cSet.add(c);
+                                });
+                                if(cSet.size > 0) allCategories.value = Array.from(cSet).sort();
+                            }
+                        }
+                    });
+                });
+
+                const filteredBrands = computed(() => {
+                    if(!searchBrandQuery.value) return brandList;
+                    const q = searchBrandQuery.value.toLowerCase();
+                    return brandList.filter(b => {
+                        const matchName = b.name.toLowerCase().includes(q);
+                        const matchAlias = b.aliases.some(alias => alias.includes(q));
+                        return matchName || matchAlias;
+                    });
+                });
+
+                const availableCategories = computed(() => {
+                    if(!selectedBrand.value || csvData.value.length === 0) return allCategories.value;
+                    const cSet = new Set();
+                    csvData.value.forEach(row => {
+                        const b = row['Brand'] || row['brand'] || row['メーカー'] || row['ブランド'];
+                        const c = row['Category'] || row['category'] || row['分野'] || row['カテゴリ'];
+                        if(b === selectedBrand.value.name && c) cSet.add(c);
+                    });
+                    return cSet.size > 0 ? Array.from(cSet).sort() : allCategories.value;
+                });
+
+                const allQuestionsAnswered = computed(() => {
+                    return questions.value.every(q => q.answer !== null);
+                });
+
+                const selectBrand = (brandObj) => {
+                    selectedBrand.value = brandObj;
+                    currentStep.value = 2;
+                };
+
+                const selectCategory = (category) => {
+                    selectedCategory.value = category;
+                };
+
+                const validateAndNextStep3 = () => {
+                    if(releaseYear.value && releaseMonth.value && msrpPrice.value > 0) {
+                        currentStep.value = 4;
+                    }
+                };
+
+                const getDeclineRate = (yearsElapsed) => {
+                    if (yearsElapsed < 1) return 1.0; 
+                    let rate = null;
+
+                    if(csvData.value.length > 0) {
+                        let targetRows = csvData.value.filter(row => {
+                            const c = row['Category'] || row['category'] || row['分野'] || row['カテゴリ'];
+                            return c === selectedCategory.value;
+                        });
+                        
+                        if(selectedBrand.value) {
+                            const brandRows = targetRows.filter(row => {
+                                const b = row['Brand'] || row['brand'] || row['メーカー'] || row['ブランド'];
+                                return b === selectedBrand.value.name;
+                            });
+                            if(brandRows.length > 0) targetRows = brandRows;
+                        }
+
+                        if(targetRows.length > 0) {
+                            let sumRate = 0;
+                            let count = 0;
+                            targetRows.forEach(row => {
+                                const keys = Object.keys(row);
+                                const yearKey = keys.find(k => k.match(new RegExp(`^${yearsElapsed}$|${yearsElapsed}年|year\\s*${yearsElapsed}`, 'i')));
+                                if(yearKey && typeof row[yearKey] === 'number') {
+                                    sumRate += row[yearKey];
+                                    count++;
+                                }
+                            });
+                            if(count > 0) rate = sumRate / count;
+                        }
+                    }
+
+                    if (rate === null) {
+                        rate = Math.max(0.1, 1.0 - (yearsElapsed * 0.15) - 0.05);
+                    }
+                    if(rate > 1.0) rate = rate / 100;
+                    return rate;
+                };
+
+                const calculateFinalScore = () => {
+                    const msrp = Number(msrpPrice.value);
+                    
+                    let bestPrice = msrp;
+                    const sp = Number(storePrice.value);
+                    const op = Number(onlinePrice.value);
+                    
+                    if (sp > 0 && op > 0) bestPrice = Math.min(sp, op);
+                    else if (sp > 0) bestPrice = sp;
+                    else if (op > 0) bestPrice = op;
+                    else bestPrice = msrp * 0.8; 
+
+                    // 値引き前のベース価格（入力がなければbestPriceを採用）
+                    const baseBeforePrice = Number(initialPrice.value) > 0 ? Number(initialPrice.value) : bestPrice;
+                    calculatedBeforePrice.value = Math.floor(baseBeforePrice);
+
+                    // 値引き・還元の合計
+                    let totalDiscount = discounts.value.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+                    let totalReward = rewards.value.reduce((sum, r) => {
+                        let amt = Number(r.amount || 0);
+                        if (r.type === 'point' && !r.willUse) amt = amt * 0.5;
+                        return sum + amt;
+                    }, 0);
+
+                    const totalReduced = totalDiscount + totalReward;
+                    calculatedDiscountAmount.value = Math.floor(totalReduced);
+                    
+                    // 値引き率 (%)
+                    const dRate = baseBeforePrice > 0 ? (totalReduced / baseBeforePrice) * 100 : 0;
+                    calculatedDiscountRate.value = dRate;
+
+                    const realCost = Math.max(0, baseBeforePrice - totalReduced);
+                    calculatedRealCost.value = Math.floor(realCost);
+
+                    // 経過年数に基づく妥当価格
+                    const today = new Date('2026-10-12');
+                    const rDate = new Date(releaseYear.value, releaseMonth.value - 1);
+                    
+                    let monthsElapsed = (today.getFullYear() - rDate.getFullYear()) * 12 + (today.getMonth() - rDate.getMonth());
+                    if (monthsElapsed < 0) monthsElapsed = 0;
+                    const yearsElapsed = Math.floor(monthsElapsed / 12);
+
+                    const baseDeclineRate = getDeclineRate(yearsElapsed);
+                    const brandMultiplier = selectedBrand.value ? selectedBrand.value.rate : 1.0;
+                    
+                    const fairPrice = msrp * baseDeclineRate * brandMultiplier;
+                    calculatedFairPrice.value = Math.floor(fairPrice);
+
+                    // --- スコア計算 (最大80点) ---
+                    // 1. 市場妥当性スコア (最大70点)
+                    let basePriceScore = 35;
+                    if (fairPrice > 0) {
+                        const ratio = realCost / fairPrice;
+                        if (ratio <= 0.7) basePriceScore = 70;
+                        else if (ratio >= 1.3) basePriceScore = 0;
+                        else basePriceScore = 35 + ((1.0 - ratio) / 0.3) * 35;
+                    }
+
+                    // 2. 提示価格からの値引き幅・お得感ボーナス (最大10点)
+                    // 値引き前価格から 5%引きで+2点, 10%引きで+5点, 20%以上引きで+10点
+                    let discountBonus = 0;
+                    if (dRate >= 20) discountBonus = 10;
+                    else if (dRate >= 10) discountBonus = 5 + ((dRate - 10) / 10) * 5;
+                    else if (dRate >= 5) discountBonus = (dRate / 5) * 2;
+
+                    let priceScore = Math.min(80, Math.max(0, Math.round(basePriceScore + discountBonus)));
+
+                    const qScore = questions.value.reduce((sum, q) => sum + (q.answer || 0), 0);
+                    totalScore.value = priceScore + qScore;
+
+                    if (totalScore.value >= 80) {
+                        verdictTitle.value = "即買い推奨！";
+                        verdictColor.value = "text-green-600 text-2xl";
+                        adviceText.value = "今すぐ買うべきです！値引き前からの交渉・還元幅も大きく、妥当ラインと比較しても非常に魅力的です。あなたのニーズにもベストマッチしています。";
+                    } else if (totalScore.value >= 60) {
+                        verdictTitle.value = "買い時です";
+                        verdictColor.value = "text-blue-600 text-xl";
+                        adviceText.value = "購入して問題ありません。そこそこの値引きが得られており、価格水準も適正です。今買っても十分納得できる結果となります。";
+                    } else if (totalScore.value >= 40) {
+                        verdictTitle.value = "ステイ推奨 (様子見)";
+                        verdictColor.value = "text-yellow-600 text-xl";
+                        adviceText.value = "もう少し値引き交渉するか、時期を待つことをお勧めします。提示価格からの下落幅・還元がまだ少し物足りない状態です。";
+                    } else {
+                        verdictTitle.value = "今は見送りましょう";
+                        verdictColor.value = "text-red-600 text-xl";
+                        adviceText.value = "購入は見送るのが無難です。値引き前価格からの引き幅が小さく、実質負担額が妥当ラインよりかなり割高です。大幅な値下がりを待ちましょう。";
+                    }
+
+                    currentStep.value = 6;
+                    
+                    setTimeout(() => {
+                        drawChart();
+                    }, 350); 
+                };
+
+                const drawChart = () => {
+                    const ctx = document.getElementById('scoreChart');
+                    if (!ctx) return;
+                    if (chartInstance) chartInstance.destroy();
+
+                    let color = '#10B981';
+                    if(totalScore.value < 40) color = '#EF4444';
+                    else if(totalScore.value < 60) color = '#F59E0B';
+                    else if(totalScore.value < 80) color = '#3B82F6';
+
+                    chartInstance = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            datasets: [{
+                                data: [totalScore.value, 100 - totalScore.value],
+                                backgroundColor: [color, '#E5E7EB'],
+                                borderWidth: 0,
+                                borderRadius: totalScore.value > 0 ? 10 : 0
+                            }]
+                        },
+                        options: {
+                            cutout: '82%',
+                            animation: { animateScale: true, animateRotate: true, duration: 2000, easing: 'easeOutCubic' },
+                            plugins: { tooltip: { enabled: false } },
+                            hover: { mode: null }
+                        }
+                    });
+                };
+
+                const saveScreenshot = async () => {
+                    const target = document.getElementById('captureArea');
+                    if (!target) return;
+                    try {
+                        const canvas = await html2canvas(target, {
+                            scale: 2,
+                            backgroundColor: '#ffffff'
+                        });
+                        const url = canvas.toDataURL('image/png');
+                        const a = document.createElement('a');
+                        a.href = url;
+                        const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
+                        a.download = `otoku_checker_${dateStr}.png`;
+                        a.click();
+                    } catch (e) {
+                        console.error('Screenshot failed', e);
+                        alert('画像の保存に失敗しました。');
+                    }
+                };
+
+                const formatPrice = (price) => new Intl.NumberFormat('ja-JP').format(price);
+
+                const resetApp = () => {
+                    currentStep.value = 1;
+                    searchBrandQuery.value = '';
+                    selectedBrand.value = null;
+                    selectedCategory.value = null;
+                    releaseYear.value = '';
+                    releaseMonth.value = '';
+                    msrpPrice.value = null;
+                    storePrice.value = null;
+                    onlinePrice.value = null;
+                    initialPrice.value = null;
+                    discounts.value = [];
+                    rewards.value = [];
+                    questions.value.forEach(q => q.answer = null);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+
+                return {
+                    currentStep, searchBrandQuery, filteredBrands, availableCategories,
+                    selectedBrand, selectedCategory, selectBrand, selectCategory,
+                    availableYears, releaseYear, releaseMonth,
+                    msrpPrice, storePrice, onlinePrice, initialPrice, validateAndNextStep3,
+                    discounts, rewards, questions, allQuestionsAnswered, calculateFinalScore,
+                    totalScore, calculatedRealCost, calculatedFairPrice, calculatedBeforePrice,
+                    calculatedDiscountAmount, calculatedDiscountRate, verdictTitle, verdictColor,
+                    adviceText, formatPrice, resetApp, saveScreenshot
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

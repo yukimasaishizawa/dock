@@ -1,0 +1,1560 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#263b84" />
+    <title>NOJIMA TOOL HUB</title>
+    <style>
+      :root {
+        --blue: #263b84;
+        --blue-deep: #1e306c;
+        --red: #e52332;
+        --ink: #19243a;
+        --muted: #778196;
+        --line: #e6eaf1;
+        --paper: #ffffff;
+        --canvas: #f5f7fb;
+        --shadow: 0 18px 50px rgba(23, 45, 88, 0.1);
+        --radius: 18px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--canvas);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+          "Yu Gothic", Meiryo, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      .boot {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        color: #fff;
+        background: radial-gradient(circle at 50% 42%, #3155a1, #102d68 65%);
+        transition:
+          opacity 0.7s ease,
+          visibility 0.7s ease;
+      }
+      .boot::before,
+      .boot::after {
+        content: "";
+        position: absolute;
+        width: 54vw;
+        aspect-ratio: 1;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 50%;
+        animation: orbit 9s linear infinite;
+      }
+      .boot::after {
+        width: 76vw;
+        animation-direction: reverse;
+      }
+      .boot.done {
+        opacity: 0;
+        visibility: hidden;
+      }
+      .boot-inner {
+        z-index: 1;
+        text-align: center;
+        animation: rise 0.8s both;
+      }
+      .boot-logo {
+        width: min(68vw, 310px);
+        height: auto;
+        object-fit: contain;
+        animation: logoZoom 2.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+      .boot-caption {
+        margin-top: 25px;
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        color: rgba(255, 255, 255, 0.68);
+      }
+      .boot-caption::after {
+        content: "";
+        animation: dots 1.4s steps(4, end) infinite;
+      }
+      @keyframes logoZoom {
+        0% {
+          opacity: 0;
+          transform: scale(0.66);
+        }
+        25% {
+          opacity: 1;
+        }
+        78% {
+          transform: scale(1.04);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      @keyframes rise {
+        from {
+          transform: translateY(15px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+      @keyframes orbit {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes dots {
+        0% {
+          content: "";
+        }
+        25% {
+          content: ".";
+        }
+        50% {
+          content: "..";
+        }
+        75%,
+        100% {
+          content: "...";
+        }
+      }
+      .shell {
+        min-height: 100vh;
+      }
+      .topbar {
+        height: 76px;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 0 34px;
+        background: #263b84;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(16px);
+        color: #fff;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 13px;
+        text-decoration: none;
+        color: inherit;
+        min-width: 215px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .brand img {
+        display: block;
+        width: 124px;
+        max-height: 44px;
+        object-fit: contain;
+        filter: brightness(0) invert(1);
+      }
+      .brand-divider {
+        width: 1px;
+        height: 25px;
+        background: rgba(255, 255, 255, 0.38);
+      }
+      .brand-name {
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        color: #fff;
+        font-weight: 700;
+      }
+      .top-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: rgba(255, 255, 255, 0.88);
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .status-dot {
+        flex: 0 0 auto;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ffd166;
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.17);
+      }
+      .status-dot[data-state="online"] {
+        background: #51d39a;
+      }
+      .status-dot[data-state="syncing"] {
+        background: #ffd166;
+      }
+      .status-dot[data-state="offline"] {
+        background: #ff737b;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 252px minmax(0, 1fr);
+        max-width: 1500px;
+        min-height: calc(100vh - 76px);
+        margin: auto;
+      }
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        padding: 34px 20px 24px 28px;
+        border-right: 1px solid var(--line);
+      }
+      .side-kicker {
+        margin: 0 0 14px 12px;
+        color: #9aa3b2;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+      }
+      .nav-list {
+        display: grid;
+        gap: 5px;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        min-height: 46px;
+        padding: 0 13px;
+        border: 0;
+        border-radius: 12px;
+        color: #657188;
+        background: transparent;
+        text-align: left;
+        transition: 0.2s;
+      }
+      .nav-item:hover {
+        color: var(--blue);
+        background: #edf2fb;
+      }
+      .nav-item.active {
+        color: var(--blue);
+        background: #eaf0fc;
+        font-weight: 750;
+      }
+      .nav-icon {
+        display: grid;
+        place-items: center;
+        width: 25px;
+        height: 25px;
+        border-radius: 8px;
+        background: #fff;
+        color: var(--blue);
+        font-size: 13px;
+      }
+      .nav-count {
+        margin-left: auto;
+        font-size: 11px;
+        color: #9aa3b2;
+      }
+      .nav-icon {
+        overflow: hidden;
+        background: transparent;
+      }
+      .nav-icon img {
+        display: block;
+        width: 25px;
+        height: 25px;
+        object-fit: contain;
+      }
+      .sidebar-bottom {
+        margin-top: auto;
+        padding-top: 24px;
+      }
+      .add-button {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        height: 48px;
+        border: 0;
+        border-radius: 13px;
+        color: #fff;
+        background: var(--blue);
+        font-weight: 700;
+        box-shadow: 0 8px 20px #173b8429;
+        transition:
+          transform 0.2s,
+          background 0.2s,
+          box-shadow 0.2s;
+      }
+      .add-button:hover {
+        background: var(--blue-deep);
+        transform: translateY(-2px);
+        box-shadow: 0 12px 24px #173b8438;
+      }
+      .local-note {
+        margin: 15px 4px 0;
+        color: #9aa3b2;
+        font-size: 10px;
+        line-height: 1.7;
+      }
+      .content {
+        min-width: 0;
+        padding: 45px clamp(22px, 5vw, 72px) 72px;
+      }
+      .hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: flex-end;
+        margin-bottom: 30px;
+      }
+      .eyebrow {
+        margin: 0 0 11px;
+        color: var(--red);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+      }
+      .eyebrow.notice {
+        margin: 0 0 28px;
+        padding: 16px 19px;
+        border: 1px solid #f0d7d9;
+        border-radius: 13px;
+        background: #fff4f3;
+        color: #9b3940;
+        font-size: clamp(13px, 1.3vw, 16px);
+        font-weight: 750;
+        letter-spacing: 0;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(28px, 3.7vw, 43px);
+        letter-spacing: -0.045em;
+        line-height: 1.18;
+      }
+      .hero-desc {
+        margin: 12px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .hero-mark {
+        display: none;
+        color: #dce4f2;
+        font-size: 72px;
+        line-height: 0.8;
+        font-weight: 900;
+      }
+      .search-wrap {
+        position: relative;
+        margin-bottom: 27px;
+      }
+      .search-icon {
+        position: absolute;
+        left: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #8792a6;
+        font-size: 17px;
+        pointer-events: none;
+      }
+      .search {
+        width: 100%;
+        height: 58px;
+        padding: 0 18px 0 49px;
+        outline: 0;
+        border: 1px solid #e2e7ef;
+        border-radius: 15px;
+        background: #fff;
+        box-shadow: 0 5px 18px rgba(24, 44, 82, 0.035);
+        transition: 0.2s;
+      }
+      .search:focus {
+        border-color: #7894cf;
+        box-shadow: 0 0 0 4px #163c8913;
+      }
+      .search::placeholder {
+        color: #a0a8b5;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
+      .results-title {
+        font-size: 13px;
+        font-weight: 750;
+      }
+      .results-sub {
+        margin-left: 8px;
+        color: #9aa3b2;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .sort-select {
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 8px 10px;
+        background: #fff;
+        color: #68758b;
+        font-size: 11px;
+        outline: 0;
+      }
+      .list {
+        display: grid;
+        gap: 11px;
+      }
+      .tool-card {
+        display: grid;
+        grid-template-columns: minmax(190px, 1fr) minmax(190px, 0.8fr) auto;
+        align-items: center;
+        gap: 20px;
+        min-height: 104px;
+        padding: 18px 20px;
+        border: 1px solid #e9edf3;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(22, 42, 79, 0.025);
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s,
+          border-color 0.2s;
+        animation: cardIn 0.35s both;
+      }
+      .tool-card:hover {
+        transform: translateY(-2px);
+        border-color: #d3ddef;
+        box-shadow: var(--shadow);
+      }
+      @keyframes cardIn {
+        from {
+          opacity: 0;
+          transform: translateY(9px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .tool-main {
+        min-width: 0;
+      }
+      .tool-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .type-icon {
+        flex: 0 0 auto;
+        display: grid;
+        place-items: center;
+        width: 37px;
+        height: 37px;
+        border-radius: 11px;
+        background: #edf2fb;
+        color: var(--blue);
+        font-size: 12px;
+        font-weight: 850;
+      }
+      .tool-title {
+        overflow: hidden;
+        font-size: 15px;
+        font-weight: 750;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .tool-kind {
+        margin: 7px 0 0 47px;
+        color: #97a0af;
+        font-size: 11px;
+      }
+      .tool-meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        color: #8691a3;
+        font-size: 11px;
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        padding: 5px 9px;
+        border-radius: 7px;
+        background: #f1f4f8;
+        color: #58657b;
+        font-size: 10px;
+        font-weight: 750;
+      }
+      .date {
+        white-space: nowrap;
+      }
+      .card-actions {
+        display: flex;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+      .action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        vertical-align: middle;
+        line-height: 1.25;
+        min-height: 34px;
+        padding: 0 11px;
+        border: 1px solid transparent;
+        border-radius: 9px;
+        background: #f0f3fb;
+        color: #344b82;
+        font-size: 11px;
+        font-weight: 700;
+        transition: 0.18s;
+        text-decoration: none;
+      }
+      .action:hover {
+        border-color: #d3dbee;
+        color: #223b78;
+        background: #e7edf9;
+      }
+      .action.primary {
+        border-color: #dce4f5;
+        background: #e8eefb;
+        color: #263b84;
+      }
+      .action.primary:hover {
+        background: #dce6f8;
+      }
+      .action[data-action="edit"] {
+        border-color: #e6dff6;
+        background: #f1ecfb;
+        color: #66528d;
+      }
+      .action[data-action="preview"] {
+        border-color: #d8ece7;
+        background: #eaf6f2;
+        color: #397866;
+      }
+      .action[data-action="share"] {
+        border-color: #f2e5cb;
+        background: #fff5e5;
+        color: #8a6b32;
+      }
+      .action[data-action="open"] {
+        border-color: #dae4f4;
+        background: #e9f1fb;
+        color: #365b91;
+      }
+      .empty {
+        display: none;
+        padding: 66px 22px;
+        text-align: center;
+        border: 1px dashed #dce2ec;
+        border-radius: 18px;
+        background: #fbfcfe;
+      }
+      .empty.show {
+        display: block;
+        animation: cardIn 0.35s both;
+      }
+      .empty-icon {
+        display: grid;
+        place-items: center;
+        width: 54px;
+        height: 54px;
+        margin: 0 auto 15px;
+        border-radius: 17px;
+        background: #edf2fb;
+        color: var(--blue);
+        font-size: 22px;
+      }
+      .empty h2 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+      .empty p {
+        max-width: 420px;
+        margin: auto;
+        color: #8791a2;
+        font-size: 12px;
+        line-height: 1.8;
+      }
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(10, 19, 39, 0.54);
+        backdrop-filter: blur(7px);
+      }
+      .modal-backdrop.open {
+        display: flex;
+        animation: fade 0.18s ease both;
+      }
+      @keyframes fade {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .modal {
+        width: min(96vw, 1440px);
+        max-height: 94vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid #e8edf5;
+        border-radius: 20px;
+        background: #fff;
+        box-shadow: 0 28px 90px rgba(8, 18, 40, 0.28);
+        animation: modalUp 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+      @keyframes modalUp {
+        from {
+          opacity: 0;
+          transform: translateY(12px) scale(0.985);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      .modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        padding: 17px 21px;
+        border-bottom: 1px solid var(--line);
+      }
+      .modal-heading {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 800;
+      }
+      .icon-button {
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        width: 35px;
+        height: 35px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        color: #617087;
+        font-size: 18px;
+      }
+      .icon-button:hover {
+        background: #f4f6fa;
+      }
+      .modal-body {
+        overflow: auto;
+        padding: 23px;
+      }
+      .modal-foot {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 21px;
+        border-top: 1px solid var(--line);
+        background: #fcfcfd;
+      }
+      .form-grid {
+        display: grid;
+        gap: 17px;
+      }
+      .field label {
+        display: block;
+        margin: 0 0 8px;
+        color: #4f5d75;
+        font-size: 12px;
+        font-weight: 750;
+      }
+      .field input,
+      .field select {
+        width: 100%;
+        height: 45px;
+        padding: 0 12px;
+        outline: 0;
+        border: 1px solid #dfe5ee;
+        border-radius: 10px;
+        background: #fff;
+      }
+      .field input:focus,
+      .field select:focus {
+        border-color: #7894cf;
+        box-shadow: 0 0 0 3px #163c8912;
+      }
+      .danger {
+        margin-right: auto;
+        border-color: #f1cfd2;
+        color: #bb3541;
+      }
+      .danger:hover {
+        border-color: #e9aeb4;
+        color: #a41d2a;
+        background: #fff8f8;
+      }
+      .preview-frame {
+        width: 100%;
+        min-height: 72vh;
+        border: 0;
+        background: #f4f6f9;
+      }
+      .preview-file {
+        min-height: 48vh;
+        display: grid;
+        place-items: center;
+        padding: 28px;
+        text-align: center;
+        background: #f7f8fb;
+      }
+      .preview-file p {
+        color: #788397;
+        font-size: 13px;
+        line-height: 1.8;
+      }
+      .qr-layout {
+        display: grid;
+        grid-template-columns: 230px minmax(0, 1fr);
+        align-items: center;
+        gap: 25px;
+        padding: 10px 4px;
+      }
+      .qr-box {
+        display: grid;
+        place-items: center;
+        width: 230px;
+        min-height: 230px;
+        padding: 13px;
+        border: 1px solid #ebeff5;
+        border-radius: 16px;
+        background: #fff;
+      }
+      .qr-box img {
+        display: block;
+        max-width: 100%;
+        image-rendering: pixelated;
+      }
+      .qr-fallback {
+        padding: 16px;
+        text-align: center;
+        color: #8b95a4;
+        font-size: 11px;
+      }
+      .share-copy h3 {
+        margin: 0 0 9px;
+        font-size: 17px;
+      }
+      .share-copy p {
+        margin: 0 0 15px;
+        color: #7c8799;
+        font-size: 12px;
+        line-height: 1.75;
+      }
+      .share-url {
+        overflow-wrap: anywhere;
+        padding: 10px;
+        border-radius: 9px;
+        background: #f4f6fa;
+        color: #59677f;
+        font:
+          11px/1.6 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+      }
+      .toast {
+        position: fixed;
+        z-index: 200;
+        right: 22px;
+        bottom: 22px;
+        max-width: calc(100vw - 44px);
+        padding: 13px 17px;
+        border-radius: 12px;
+        background: #182844;
+        color: #fff;
+        box-shadow: var(--shadow);
+        font-size: 12px;
+        opacity: 0;
+        transform: translateY(8px);
+        pointer-events: none;
+        transition: 0.22s;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .menu-button {
+        display: none;
+      }
+      @media (min-width: 1300px) {
+        .hero-mark {
+          display: block;
+        }
+      }
+      @media (max-width: 920px) {
+        .layout {
+          grid-template-columns: 210px minmax(0, 1fr);
+        }
+        .sidebar {
+          padding-left: 17px;
+          padding-right: 15px;
+        }
+        .content {
+          padding-left: 30px;
+          padding-right: 30px;
+        }
+        .tool-card {
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 10px 15px;
+        }
+        .tool-meta {
+          grid-column: 1;
+          grid-row: 2;
+          margin-left: 47px;
+        }
+        .card-actions {
+          grid-column: 2;
+          grid-row: 1 / span 2;
+        }
+      }
+      @media (max-width: 680px) {
+        .topbar {
+          height: 64px;
+          padding: 0 17px;
+        }
+        .brand {
+          min-width: 0;
+          gap: 9px;
+        }
+        .brand img {
+          width: 100px;
+          max-height: 38px;
+        }
+        .brand-name,
+        .brand-divider {
+          display: none;
+        }
+        .top-meta {
+          display: flex;
+          gap: 7px;
+          font-size: 10px;
+        }
+        .menu-button {
+          display: grid;
+          place-items: center;
+          width: 38px;
+          height: 38px;
+          border: 1px solid var(--line);
+          border-radius: 11px;
+          background: #fff;
+          color: var(--blue);
+        }
+        .layout {
+          display: block;
+          min-height: calc(100vh - 64px);
+        }
+        .sidebar {
+          display: block;
+          padding: 13px 16px 10px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+          background: #fff;
+        }
+        .side-kicker,
+        .sidebar-bottom,
+        .local-note {
+          display: none;
+        }
+        .nav-list {
+          display: flex;
+          overflow-x: auto;
+          gap: 6px;
+          scrollbar-width: none;
+        }
+        .nav-list::-webkit-scrollbar {
+          display: none;
+        }
+        .nav-item {
+          flex: 0 0 auto;
+          width: auto;
+          min-height: 39px;
+          padding: 0 11px;
+          gap: 7px;
+          border: 1px solid transparent;
+          font-size: 12px;
+        }
+        .nav-item.active {
+          border-color: #e0e8f6;
+        }
+        .nav-icon {
+          width: 20px;
+          height: 20px;
+          font-size: 11px;
+        }
+        .nav-icon img {
+          width: 20px;
+          height: 20px;
+        }
+        .nav-count {
+          margin-left: 0;
+        }
+        .content {
+          padding: 31px 17px 55px;
+        }
+        .hero {
+          margin-bottom: 23px;
+        }
+        .hero-desc {
+          max-width: 270px;
+          font-size: 12px;
+          line-height: 1.7;
+        }
+        .search {
+          height: 53px;
+        }
+        .tool-card {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 12px;
+          padding: 15px;
+        }
+        .tool-meta {
+          grid-column: auto;
+          grid-row: auto;
+          margin-left: 0;
+        }
+        .card-actions {
+          grid-column: auto;
+          grid-row: auto;
+          justify-content: flex-start;
+        }
+        .action {
+          min-height: 36px;
+          padding: 0 12px;
+        }
+        .modal-backdrop {
+          align-items: flex-end;
+          padding: 0;
+        }
+        .modal {
+          width: 100%;
+          max-height: 92vh;
+          border-radius: 20px 20px 0 0;
+        }
+        .preview-frame {
+          min-height: 60vh;
+        }
+        .qr-layout {
+          grid-template-columns: 1fr;
+          justify-items: center;
+          gap: 20px;
+        }
+        .share-copy {
+          width: 100%;
+          text-align: center;
+        }
+        .share-url {
+          text-align: left;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="boot" id="boot" aria-label="サイトを起動しています">
+      <div class="boot-inner">
+        <img class="boot-logo" src="logo_login.png" alt="Nojima Tool Hub" />
+        <div class="boot-caption">TOOL HUB を準備しています</div>
+      </div>
+    </div>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="#home" id="homeLink" aria-label="初期画面に戻る">
+          <img src="logo.png" alt="Nojima" />
+          <span class="brand-divider"></span>
+          <span class="brand-name">スタッフ専用</span>
+        </a>
+        <div class="top-meta" id="connectionStatus" aria-live="polite">
+          <span class="status-dot" data-state="syncing"></span>
+          <span id="connectionLabel">連携中</span>
+        </div>
+        <button class="menu-button" id="mobileAdd" aria-label="URLを追加">
+          ＋
+        </button>
+      </header>
+      <div class="layout" id="home">
+        <aside class="sidebar">
+          <p class="side-kicker">CATEGORY</p>
+          <nav class="nav-list" id="categoryNav" aria-label="カテゴリ"></nav>
+          <div class="sidebar-bottom">
+            <button class="add-button" id="addButton">
+              <span>＋</span> URLを新規追加
+            </button>
+            <p class="local-note">
+              URLの登録内容はこのブラウザ内に保存されます。共有設定は後日連携予定です。
+            </p>
+          </div>
+        </aside>
+        <main class="content">
+          <section class="hero">
+            <div>
+              <p class="eyebrow notice">
+                お客様へのこのサイトのURLおよびパスワードの公開は禁止です
+              </p>
+            </div>
+            <div class="hero-mark" aria-hidden="true">N.</div>
+          </section>
+          <div class="search-wrap">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input
+              class="search"
+              id="search"
+              type="search"
+              autocomplete="off"
+              placeholder="資料名・キーワードで検索"
+              aria-label="資料を検索"
+            />
+          </div>
+          <div class="toolbar">
+            <div>
+              <span class="results-title" id="resultsTitle"
+                >すべてのツール</span
+              >
+              <span class="results-sub" id="resultCount"></span>
+            </div>
+            <select class="sort-select" id="sortSelect" aria-label="表示順">
+              <option value="newest">更新が新しい順</option>
+              <option value="name">名前順</option>
+            </select>
+          </div>
+          <div class="list" id="toolList"></div>
+          <section class="empty" id="emptyState">
+            <div class="empty-icon">⌕</div>
+            <h2 id="emptyTitle">ツールはまだありません</h2>
+            <p id="emptyText">
+              「URLを新規追加」からWebツールを登録するか、READMEの手順で資料ファイルを追加してください。
+            </p>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="modalBackdrop" role="presentation">
+      <section
+        class="modal"
+        id="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalTitle"
+      >
+        <header class="modal-head">
+          <h2 class="modal-heading" id="modalTitle"></h2>
+          <button class="icon-button" id="modalClose" aria-label="閉じる">
+            ×
+          </button>
+        </header>
+        <div class="modal-body" id="modalBody"></div>
+        <footer class="modal-foot" id="modalFoot"></footer>
+      </section>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="assets/qrcode.js"></script>
+    <script src="assets/qrcode_UTF8.js"></script>
+    <script>
+      const CATEGORIES = ["すべて", "家電", "季節AV", "情報", "通信"];
+      const ICONS = {
+        すべて: "▦",
+        家電: "⌂",
+        季節AV: "◌",
+        情報: "▤",
+        通信: "⌁",
+      };
+      const CATEGORY_LOGOS = {
+        すべて: "all_logo.png",
+        家電: "home_logo.png",
+        季節AV: "av_logo.png",
+        情報: "tech_logo.png",
+        通信: "net_logo.png",
+      };
+      const STORAGE_KEY = "noji-tool-hub-links-v1";
+      let selectedCategory = "すべて";
+      let activeModalItem = null;
+      let toastTimer;
+      let fileItems = [];
+      const $ = (selector) => document.querySelector(selector);
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(
+          /[&<>"']/g,
+          (char) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[char],
+        );
+      }
+      function normalized(value) {
+        return String(value ?? "")
+          .normalize("NFKC")
+          .toLocaleLowerCase("ja");
+      }
+      function readLinks() {
+        try {
+          const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+          return Array.isArray(value)
+            ? value.filter((item) => item && item.type === "url")
+            : [];
+        } catch {
+          return [];
+        }
+      }
+      function saveLinks(items) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      }
+      function allItems() {
+        return [...fileItems, ...readLinks()];
+      }
+      function prettyDate(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "日付不明";
+        return new Intl.DateTimeFormat("ja-JP", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(date);
+      }
+      function renderCategories() {
+        const items = allItems();
+        $("#categoryNav").innerHTML = CATEGORIES.map((category) => {
+          const count =
+            category === "すべて"
+              ? items.length
+              : items.filter((item) => item.category === category).length;
+          return `<button class="nav-item ${selectedCategory === category ? "active" : ""}"
+          data-category="${escapeHtml(category)}" aria-pressed="${selectedCategory === category}">
+          <span class="nav-icon"><img src="${CATEGORY_LOGOS[category]}" alt="" /></span>
+          <span>${escapeHtml(category)}</span>
+          <span class="nav-count">${count}</span></button>`;
+        }).join("");
+      }
+      function getVisibleItems() {
+        const query = normalized($("#search").value.trim());
+        let items = allItems().filter(
+          (item) =>
+            selectedCategory === "すべて" || item.category === selectedCategory,
+        );
+        if (query)
+          items = items.filter((item) =>
+            normalized(item.title).includes(query),
+          );
+        if ($("#sortSelect").value === "name")
+          items.sort((a, b) => a.title.localeCompare(b.title, "ja"));
+        else
+          items.sort(
+            (a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0),
+          );
+        return items;
+      }
+      function render() {
+        renderCategories();
+        const items = getVisibleItems();
+        $("#resultsTitle").textContent =
+          selectedCategory === "すべて"
+            ? "すべてのツール"
+            : `${selectedCategory}のツール`;
+        $("#resultCount").textContent = `${items.length} 件`;
+        $("#toolList").innerHTML = items
+          .map((item, index) => {
+            const isFile = item.type === "file";
+            const ext = isFile
+              ? (item.extension || "FILE").toUpperCase()
+              : "WEB";
+            return `<article class="tool-card" style="animation-delay:${Math.min(index * 35, 210)}ms">
+          <div class="tool-main"><div class="tool-title-row">
+            <span class="type-icon">${escapeHtml(ext.slice(0, 4))}</span>
+            <span class="tool-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
+          </div><div class="tool-kind">${isFile ? `${escapeHtml(ext)} ファイル` : "Webサイト"}</div></div>
+          <div class="tool-meta"><span class="tag">${escapeHtml(item.category)}</span>
+            <span class="date">更新 ${escapeHtml(prettyDate(item.updatedAt))}</span></div>
+          <div class="card-actions">
+            ${isFile ? "" : `<button class="action" data-action="edit" data-id="${escapeHtml(item.id)}">編集</button>`}
+            <button class="action" data-action="preview" data-id="${escapeHtml(item.id)}">プレビュー</button>
+            <a class="action primary" data-action="open" data-id="${escapeHtml(item.id)}"
+              href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">開く ↗</a>
+            <button class="action" data-action="share" data-id="${escapeHtml(item.id)}">お渡し</button>
+          </div>
+        </article>`;
+          })
+          .join("");
+        const empty = items.length === 0;
+        $("#emptyState").classList.toggle("show", empty);
+        $("#emptyTitle").textContent = $("#search").value.trim()
+          ? "一致するツールがありません"
+          : "ツールはまだありません";
+        $("#emptyText").textContent = $("#search").value.trim()
+          ? "別のキーワードで検索するか、カテゴリを切り替えてください。"
+          : "「URLを新規追加」からWebツールを登録するか、READMEの手順で資料ファイルを追加してください。";
+      }
+      function openModal(title, body, footer = "") {
+        $("#modalTitle").textContent = title;
+        $("#modalBody").innerHTML = body;
+        $("#modalFoot").innerHTML = footer;
+        $("#modalBackdrop").classList.add("open");
+        document.body.style.overflow = "hidden";
+        $("#modalClose").focus();
+      }
+      function closeModal() {
+        $("#modalBackdrop").classList.remove("open");
+        document.body.style.overflow = "";
+        $("#modalBody").innerHTML = "";
+        activeModalItem = null;
+      }
+      function categoryOptions(selected = "家電") {
+        return CATEGORIES.filter((value) => value !== "すべて")
+          .map(
+            (value) =>
+              `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(value)}</option>`,
+          )
+          .join("");
+      }
+      function openEditor(item = null) {
+        activeModalItem = item;
+        const editing = Boolean(item);
+        const body = `<form class="form-grid" id="linkForm">
+        <div class="field"><label for="linkTitle">ツールの題名</label>
+          <input id="linkTitle" name="title" required maxlength="100"
+            value="${escapeHtml(item?.title || "")}"
+            placeholder="例：エアコン選びサポート"></div>
+        <div class="field"><label for="linkUrl">URL</label>
+          <input id="linkUrl" name="url" type="url" required value="${escapeHtml(item?.url || "")}" placeholder="https://example.com"></div>
+        <div class="field"><label for="linkCategory">ラベル</label>
+          <select id="linkCategory" name="category">${categoryOptions(item?.category || "家電")}</select></div>
+      </form>`;
+        const footer = `${editing ? '<button class="action danger" id="deleteLink">削除</button>' : ""}
+        <button class="action" id="cancelModal">キャンセル</button>
+        <button class="action primary" id="saveLink">${editing ? "変更を確定" : "登録する"}</button>`;
+        openModal(editing ? "URLを編集" : "Webツールを追加", body, footer);
+      }
+      function showToast(message) {
+        const toast = $("#toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+      }
+      function itemById(id) {
+        return allItems().find((item) => String(item.id) === String(id));
+      }
+      function safeUrl(value) {
+        try {
+          const url = new URL(value);
+          return ["http:", "https:"].includes(url.protocol) ? url.href : null;
+        } catch {
+          return null;
+        }
+      }
+      function preview(item) {
+        activeModalItem = item;
+        const file = item.type === "file";
+        const previewBody = file
+          ? [
+              "pdf",
+              "html",
+              "htm",
+              "png",
+              "jpg",
+              "jpeg",
+              "webp",
+              "txt",
+            ].includes((item.extension || "").toLowerCase())
+            ? `<iframe class="preview-frame" title="${escapeHtml(item.title)}" src="${escapeHtml(item.url)}"></iframe>`
+            : `<div class="preview-file"><div><div class="empty-icon">${escapeHtml((item.extension || "FILE").toUpperCase())}</div>
+              <p>この形式はブラウザ内プレビューに対応していません。<br>「別タブで開く」からご確認ください。</p>
+              <a class="action primary" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">別タブで開く ↗</a></div></div>`
+          : `<iframe class="preview-frame" title="${escapeHtml(item.title)}" src="${escapeHtml(item.url)}"
+            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-downloads" referrerpolicy="no-referrer"></iframe>`;
+        openModal(
+          item.title,
+          previewBody,
+          `<a class="action primary" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">別タブで開く ↗</a>
+         <button class="action" id="cancelModal">閉じる</button>`,
+        );
+      }
+      function share(item) {
+        const target =
+          item.type === "file"
+            ? new URL(item.url, location.href).href
+            : item.url;
+        const body = `<div class="qr-layout"><div class="qr-box" id="qrBox"><div class="qr-fallback">QRコードを準備しています…</div></div>
+        <div class="share-copy"><h3>お客様へお渡し</h3>
+          <p>${item.type === "file" ? "QRコードからファイルを開き、必要に応じてダウンロードできます。" : "QRコードからWebサイトを開けます。"}</p>
+          <div class="share-url">${escapeHtml(target)}</div></div></div>`;
+        openModal(
+          "QRコードで共有",
+          body,
+          `<button class="action" id="copyShare">リンクをコピー</button><button class="action primary" id="cancelModal">閉じる</button>`,
+        );
+        try {
+          const code = qrcode(0, "M");
+          code.addData(target, "Byte");
+          code.make();
+          const modules = code.getModuleCount();
+          const margin = 4;
+          let path = "";
+          for (let row = 0; row < modules; row += 1) {
+            for (let col = 0; col < modules; col += 1) {
+              if (code.isDark(row, col))
+                path += `M${col + margin},${row + margin}h1v1h-1z`;
+            }
+          }
+          const size = modules + margin * 2;
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges">
+            <path fill="#fff" d="M0 0h${size}v${size}H0z"/>
+            <path fill="#14213d" d="${path}"/>
+          </svg>`;
+          const img = document.createElement("img");
+          img.alt = "共有先のQRコード";
+          img.width = 202;
+          img.height = 202;
+          img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+          const box = $("#qrBox");
+          if (box) box.replaceChildren(img);
+        } catch {
+          const box = $("#qrBox");
+          if (box)
+            box.innerHTML =
+              '<div class="qr-fallback">このURLはQRコードに収まりません。リンクをコピーして共有してください。</div>';
+        }
+      }
+      function askConfirmation(
+        title,
+        message,
+        buttonLabel,
+        action,
+        danger = false,
+      ) {
+        const body = `<p style="margin:0;color:#68758b;font-size:13px;line-height:1.9">${escapeHtml(message)}</p>`;
+        const buttonClass = danger ? "action danger" : "action primary";
+        openModal(
+          title,
+          body,
+          `<button class="action" id="cancelModal">キャンセル</button>
+         <button class="${buttonClass}" id="confirmAccept">${escapeHtml(buttonLabel)}</button>`,
+        );
+        $("#confirmAccept").addEventListener("click", action);
+      }
+      async function loadFiles() {
+        setConnectionState("syncing");
+        try {
+          const response = await fetch("files/catalog.json", {
+            cache: "no-store",
+          });
+          if (!response.ok) throw new Error("catalog unavailable");
+          const rows = await response.json();
+          fileItems = Array.isArray(rows)
+            ? rows
+                .map((row, index) => ({
+                  id: `file-${index}-${row.path}`,
+                  type: "file",
+                  title: row.title || row.path,
+                  category: row.category,
+                  url: `files/${row.category}/${row.path}`,
+                  extension: (
+                    row.path.split(".").pop() || "FILE"
+                  ).toLowerCase(),
+                  updatedAt: row.updatedAt || "",
+                }))
+                .filter(
+                  (item) =>
+                    CATEGORIES.includes(item.category) &&
+                    item.category !== "すべて",
+                )
+            : [];
+        } catch {
+          fileItems = [];
+        }
+        render();
+        setConnectionState(navigator.onLine ? "online" : "offline");
+      }
+
+      function setConnectionState(state) {
+        const dot = $("#connectionStatus .status-dot");
+        const label = $("#connectionLabel");
+        if (!dot || !label) return;
+        const connection =
+          navigator.connection ||
+          navigator.mozConnection ||
+          navigator.webkitConnection;
+        if (
+          state === "online" &&
+          connection &&
+          (["slow-2g", "2g"].includes(connection.effectiveType) ||
+            (Number.isFinite(connection.downlink) && connection.downlink < 0.5))
+        ) {
+          state = "syncing";
+        }
+        dot.dataset.state = state;
+        label.textContent = {
+          online: "オンライン",
+          syncing: "連携中",
+          offline: "オフライン",
+        }[state];
+      }
+
+      $("#categoryNav").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-category]");
+        if (!button) return;
+        selectedCategory = button.dataset.category;
+        render();
+      });
+      $("#search").addEventListener("input", render);
+      $("#sortSelect").addEventListener("change", render);
+      $("#homeLink").addEventListener("click", () => {
+        selectedCategory = "すべて";
+        $("#search").value = "";
+        $("#sortSelect").value = "newest";
+        render();
+      });
+      $("#addButton").addEventListener("click", () => openEditor());
+      $("#mobileAdd").addEventListener("click", () => openEditor());
+      $("#toolList").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-action]");
+        if (!button) return;
+        const item = itemById(button.dataset.id);
+        if (!item) return;
+        if (button.dataset.action === "preview") preview(item);
+        if (button.dataset.action === "share") share(item);
+        if (button.dataset.action === "edit") openEditor(item);
+      });
+      $("#modalClose").addEventListener("click", closeModal);
+      $("#modalBackdrop").addEventListener("click", (event) => {
+        if (event.target === $("#modalBackdrop")) closeModal();
+        if (event.target.closest("#cancelModal")) closeModal();
+        if (event.target.closest("#saveLink")) {
+          event.preventDefault();
+          const form = $("#linkForm");
+          if (!form.reportValidity()) return;
+          const data = new FormData(form);
+          const url = safeUrl(data.get("url"));
+          if (!url) {
+            showToast("http:// または https:// で始まるURLを入力してください");
+            return;
+          }
+          const editing = Boolean(activeModalItem);
+          const oldId = activeModalItem?.id;
+          const record = {
+            id: oldId || `url-${Date.now()}`,
+            type: "url",
+            title: String(data.get("title")).trim(),
+            url,
+            category: data.get("category"),
+            updatedAt: new Date().toISOString(),
+          };
+          askConfirmation(
+            editing ? "変更内容の確認" : "登録内容の確認",
+            editing
+              ? "この内容に変更してよろしいですか？"
+              : "このURLを登録してよろしいですか？",
+            editing ? "変更を確定" : "登録する",
+            () => {
+              const links = readLinks();
+              const index = links.findIndex(
+                (item) => String(item.id) === String(oldId),
+              );
+              if (editing && index >= 0) links[index] = record;
+              else links.push(record);
+              saveLinks(links);
+              closeModal();
+              render();
+              showToast(editing ? "変更を保存しました" : "URLを登録しました");
+            },
+          );
+        }
+        if (event.target.closest("#deleteLink")) {
+          const item = activeModalItem;
+          if (!item) return;
+          askConfirmation(
+            "削除の確認",
+            `「${item.title}」を削除してよろしいですか？この操作は取り消せません。`,
+            "削除する",
+            () => {
+              saveLinks(
+                readLinks().filter(
+                  (link) => String(link.id) !== String(item.id),
+                ),
+              );
+              closeModal();
+              render();
+              showToast("URLを削除しました");
+            },
+            true,
+          );
+        }
+        if (event.target.closest("#copyShare")) {
+          const url = $(".share-url")?.textContent || "";
+          navigator.clipboard
+            ?.writeText(url)
+            .then(() => showToast("リンクをコピーしました"))
+            .catch(() => showToast("リンクを選択してコピーしてください"));
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeModal();
+      });
+      window.addEventListener("storage", render);
+      window.addEventListener("offline", () => setConnectionState("offline"));
+      window.addEventListener("online", () => setConnectionState("online"));
+      (
+        navigator.connection ||
+        navigator.mozConnection ||
+        navigator.webkitConnection
+      )?.addEventListener("change", () =>
+        setConnectionState(navigator.onLine ? "online" : "offline"),
+      );
+      render();
+      loadFiles();
+      window.setTimeout(() => $("#boot").classList.add("done"), 2800);
+    </script>
+  </body>
+</html>

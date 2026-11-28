@@ -1,0 +1,8 @@
+{
+  "routes": [
+    { "path": "/", "title": "ダッシュボード" },
+    { "path": "/day/:date", "title": "一日の予定" },
+    { "path": "/new", "title": "予定を追加" },
+    { "path": "/login", "title": "ログイン" }
+  ]
+}
