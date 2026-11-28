@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dock DataBase Browser</title>
+  <title>Dock Browser</title>
   <style>
     :root {
       --bg: #f8fafc;
@@ -146,7 +146,7 @@
   <div class="container">
     <div class="toolbar">
       <button id="back-btn" type="button" disabled>← 戻る</button>
-      <div id="path-display" class="path-display">/DataBase</div>
+      <div id="path-display" class="path-display">/</div>
     </div>
 
     <div class="list-card">
@@ -155,7 +155,7 @@
   </div>
 
   <script>
-    const ROOT_FOLDER = "DataBase";
+    const BASE_FOLDER = "DataBase";
 
     function detectRepoInfo() {
       const host = window.location.hostname;
@@ -179,27 +179,27 @@
     const pathDisplay = document.getElementById("path-display");
     const contentEl = document.getElementById("content");
 
-    // 常に DataBase 配下に正規化し、DataBase より上へは出さない
-    function normalizeDataBasePath(rawPath) {
-      const cleaned = (rawPath || "").replace(/^\/+|\/+$/g, "");
-      if (!cleaned) return ROOT_FOLDER;
-      if (cleaned === ROOT_FOLDER) return ROOT_FOLDER;
-      if (cleaned.startsWith(`${ROOT_FOLDER}/`)) return cleaned;
-      return `${ROOT_FOLDER}/${cleaned}`;
-    }
-
-    function getCurrentPath() {
+    // 画面上の相対パス（"" が DataBase 直下、例: "notes/2026" が DataBase/notes/2026）
+    function getRelativePath() {
       const hash = window.location.hash || "";
-      if (!hash.startsWith("#path=")) return ROOT_FOLDER;
-      const decoded = decodeURIComponent(hash.slice(6));
-      return normalizeDataBasePath(decoded);
+      if (!hash.startsWith("#path=")) return "";
+      const decoded = decodeURIComponent(hash.slice(6)).replace(/^\/+|\/+$/g, "");
+      if (!decoded || decoded === BASE_FOLDER) return "";
+      if (decoded.startsWith(`${BASE_FOLDER}/`)) {
+        return decoded.slice(BASE_FOLDER.length + 1);
+      }
+      return decoded;
     }
 
-    function setCurrentPath(targetPath) {
-      const normalized = normalizeDataBasePath(targetPath);
-      window.location.hash = normalized === ROOT_FOLDER
-        ? ""
-        : `#path=${encodeURIComponent(normalized)}`;
+    function setRelativePath(relPath) {
+      const clean = (relPath || "").replace(/^\/+|\/+$/g, "");
+      window.location.hash = clean ? `#path=${encodeURIComponent(clean)}` : "";
+    }
+
+    // リポジトリ上の実パス（常に DataBase または DataBase/...）
+    function toRepoPath(relPath) {
+      const clean = (relPath || "").replace(/^\/+|\/+$/g, "");
+      return clean ? `${BASE_FOLDER}/${clean}` : BASE_FOLDER;
     }
 
     function formatSize(bytes) {
@@ -228,15 +228,16 @@
       return item.html_url;
     }
 
-    async function loadDirectory(rawPath) {
-      const currentPath = normalizeDataBasePath(rawPath);
-      pathDisplay.textContent = `/${currentPath}`;
-      backBtn.disabled = currentPath === ROOT_FOLDER;
+    async function loadDirectory(relPath) {
+      const cleanRel = (relPath || "").replace(/^\/+|\/+$/g, "");
+      pathDisplay.textContent = cleanRel ? `/${cleanRel}` : "/";
+      backBtn.disabled = cleanRel.length === 0;
 
       contentEl.className = "status";
       contentEl.textContent = "読み込み中...";
 
-      const apiPath = `/${currentPath.split("/").map(encodeURIComponent).join("/")}`;
+      const repoPath = toRepoPath(cleanRel);
+      const apiPath = `/${repoPath.split("/").map(encodeURIComponent).join("/")}`;
       const apiUrl = `https://api.github.com/repos/${encodeURIComponent(REPO.owner)}/${encodeURIComponent(REPO.repo)}/contents${apiPath}?ref=${encodeURIComponent(REPO.branch)}`;
 
       try {
@@ -260,7 +261,7 @@
 
         if (visibleItems.length === 0) {
           contentEl.className = "status";
-          contentEl.textContent = "DataBase 内に表示できるフォルダ・ファイルはありません。";
+          contentEl.textContent = "表示できるフォルダ・ファイルはありません。";
           return;
         }
 
@@ -285,7 +286,8 @@
             dirBtn.className = "dir-link";
             dirBtn.textContent = item.name;
             dirBtn.addEventListener("click", () => {
-              setCurrentPath(`${currentPath}/${item.name}`);
+              const nextRel = cleanRel ? `${cleanRel}/${item.name}` : item.name;
+              setRelativePath(nextRel);
             });
             main.appendChild(dirBtn);
             row.appendChild(main);
@@ -314,18 +316,18 @@
     }
 
     backBtn.addEventListener("click", () => {
-      const current = getCurrentPath();
-      if (current === ROOT_FOLDER) return;
+      const current = getRelativePath();
+      if (!current) return;
       const parts = current.split("/");
       parts.pop();
-      setCurrentPath(parts.join("/"));
+      setRelativePath(parts.join("/"));
     });
 
     window.addEventListener("hashchange", () => {
-      loadDirectory(getCurrentPath());
+      loadDirectory(getRelativePath());
     });
 
-    loadDirectory(getCurrentPath());
+    loadDirectory(getRelativePath());
   </script>
 </body>
 </html>
