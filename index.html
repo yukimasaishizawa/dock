@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dock Repository Browser</title>
+  <title>Dock DataBase Browser</title>
   <style>
     :root {
       --bg: #f8fafc;
@@ -146,7 +146,7 @@
   <div class="container">
     <div class="toolbar">
       <button id="back-btn" type="button" disabled>← 戻る</button>
-      <div id="path-display" class="path-display">/</div>
+      <div id="path-display" class="path-display">/DataBase</div>
     </div>
 
     <div class="list-card">
@@ -155,6 +155,8 @@
   </div>
 
   <script>
+    const ROOT_FOLDER = "DataBase";
+
     function detectRepoInfo() {
       const host = window.location.hostname;
       const parts = window.location.pathname.split("/").filter(Boolean);
@@ -177,15 +179,27 @@
     const pathDisplay = document.getElementById("path-display");
     const contentEl = document.getElementById("content");
 
-    function getCurrentPath() {
-      const hash = window.location.hash || "";
-      if (!hash.startsWith("#path=")) return "";
-      return decodeURIComponent(hash.slice(6)).replace(/^\/+|\/+$/g, "");
+    // 常に DataBase 配下に正規化し、DataBase より上へは出さない
+    function normalizeDataBasePath(rawPath) {
+      const cleaned = (rawPath || "").replace(/^\/+|\/+$/g, "");
+      if (!cleaned) return ROOT_FOLDER;
+      if (cleaned === ROOT_FOLDER) return ROOT_FOLDER;
+      if (cleaned.startsWith(`${ROOT_FOLDER}/`)) return cleaned;
+      return `${ROOT_FOLDER}/${cleaned}`;
     }
 
-    function setCurrentPath(newPath) {
-      const clean = newPath.replace(/^\/+|\/+$/g, "");
-      window.location.hash = clean ? `#path=${encodeURIComponent(clean)}` : "";
+    function getCurrentPath() {
+      const hash = window.location.hash || "";
+      if (!hash.startsWith("#path=")) return ROOT_FOLDER;
+      const decoded = decodeURIComponent(hash.slice(6));
+      return normalizeDataBasePath(decoded);
+    }
+
+    function setCurrentPath(targetPath) {
+      const normalized = normalizeDataBasePath(targetPath);
+      window.location.hash = normalized === ROOT_FOLDER
+        ? ""
+        : `#path=${encodeURIComponent(normalized)}`;
     }
 
     function formatSize(bytes) {
@@ -195,7 +209,7 @@
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     }
 
-    // .gitignore、index.html、および隠しファイルを除外
+    // .gitignore、index.html、および隠しファイル（.DS_Store など）を除外
     function shouldHide(item) {
       if (!item || !item.name) return true;
       const lowerName = item.name.toLowerCase();
@@ -214,17 +228,15 @@
       return item.html_url;
     }
 
-    async function loadDirectory(path) {
-      const cleanPath = path.replace(/^\/+|\/+$/g, "");
-      pathDisplay.textContent = cleanPath ? `/${cleanPath}` : "/";
-      backBtn.disabled = cleanPath.length === 0;
+    async function loadDirectory(rawPath) {
+      const currentPath = normalizeDataBasePath(rawPath);
+      pathDisplay.textContent = `/${currentPath}`;
+      backBtn.disabled = currentPath === ROOT_FOLDER;
 
       contentEl.className = "status";
       contentEl.textContent = "読み込み中...";
 
-      const apiPath = cleanPath
-        ? `/${cleanPath.split("/").map(encodeURIComponent).join("/")}`
-        : "";
+      const apiPath = `/${currentPath.split("/").map(encodeURIComponent).join("/")}`;
       const apiUrl = `https://api.github.com/repos/${encodeURIComponent(REPO.owner)}/${encodeURIComponent(REPO.repo)}/contents${apiPath}?ref=${encodeURIComponent(REPO.branch)}`;
 
       try {
@@ -248,7 +260,7 @@
 
         if (visibleItems.length === 0) {
           contentEl.className = "status";
-          contentEl.textContent = "表示できるフォルダ・ファイルはありません。";
+          contentEl.textContent = "DataBase 内に表示できるフォルダ・ファイルはありません。";
           return;
         }
 
@@ -273,8 +285,7 @@
             dirBtn.className = "dir-link";
             dirBtn.textContent = item.name;
             dirBtn.addEventListener("click", () => {
-              const nextPath = cleanPath ? `${cleanPath}/${item.name}` : item.name;
-              setCurrentPath(nextPath);
+              setCurrentPath(`${currentPath}/${item.name}`);
             });
             main.appendChild(dirBtn);
             row.appendChild(main);
@@ -304,7 +315,7 @@
 
     backBtn.addEventListener("click", () => {
       const current = getCurrentPath();
-      if (!current) return;
+      if (current === ROOT_FOLDER) return;
       const parts = current.split("/");
       parts.pop();
       setCurrentPath(parts.join("/"));
